@@ -414,18 +414,12 @@ def install_submodules():
     txt = git('submodule')
     log.debug(f'Submodules list: {txt}')
     if 'no submodule mapping found' in txt:
-        log.warning('Attempting repository recover')
-        git('add .')
-        git('stash')
-        git('merge --abort', folder=None, ignore=True)
-        git('fetch --all')
-        git('reset --hard origin/master')
-        git('checkout master')
+        log.info('There is no pre-installed garbage')
         txt = git('submodule')
         log.info('Continuing setup')
     git('submodule --quiet update --init --recursive')
     if not args.skip_update:
-        log.info('Updating submodules')
+        log.info('Updating LoRA and LyCORIS submodules')
         submodules = txt.splitlines()
         for submodule in submodules:
             try:
@@ -523,7 +517,7 @@ def check_version(offline=False, reset=True): # pylint: disable=unused-argument
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     commits = None
     try:
-        commits = requests.get('https://api.github.com/repos/vladmandic/automatic/branches/master', timeout=10).json()
+        commits = requests.get('https://api.github.com/repos/DenkingOfficial/pure-sd-webui/branches/master', timeout=10).json()
         if commits['commit']['sha'] != commit:
             if args.upgrade:
                 global quick_allowed # pylint: disable=global-statement
@@ -547,16 +541,6 @@ def check_version(offline=False, reset=True): # pylint: disable=unused-argument
                 log.info(f'Latest published version: {commits["commit"]["sha"]} {commits["commit"]["commit"]["author"]["date"]}')
     except Exception as e:
         log.error(f'Failed to check version: {e} {commits}')
-
-
-def update_wiki():
-    if not args.skip_update:
-        log.info('Updating Wiki')
-        try:
-            update(os.path.join(os.path.dirname(__file__), "wiki"))
-            update(os.path.join(os.path.dirname(__file__), "wiki", "origin-wiki"))
-        except:
-            log.error('Error updating wiki')
 
 
 # check if we can run setup in quick mode
@@ -686,7 +670,6 @@ def run_setup():
     install_repositories()
     install_submodules()
     install_extensions()
-    update_wiki()
     if errors == 0:
         log.debug(f'Setup complete without errors: {round(time.time())}')
     else:

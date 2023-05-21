@@ -146,20 +146,33 @@ def create_seed_inputs(target_interface):
     with FormRow(elem_id=f"{target_interface}_seed_row", variant="compact"):
         seed = gr.Number(label='Seed', value=-1, elem_id=f"{target_interface}_seed")
         seed.style(container=False)
-        random_seed = ToolButton(random_symbol, elem_id=f"{target_interface}_random_seed", label='Random seed')
-        reuse_seed = ToolButton(reuse_symbol, elem_id=f"{target_interface}_reuse_seed", label='Reuse seed')
-        seed_checkbox = gr.Checkbox(label='Extra', elem_id=f"{target_interface}_subseed_show", value=False) # Ghost checkbox for compatibility
-    with FormRow(visible=True, elem_id=f"{target_interface}_subseed_row"):
+        random_seed = ToolButton(random_symbol, elem_id=f"{target_interface}_random_seed")
+        reuse_seed = ToolButton(reuse_symbol, elem_id=f"{target_interface}_reuse_seed")
+        seed_checkbox = gr.Checkbox(label='Extra', elem_id=f"{target_interface}_subseed_show", value=False, visible=True)
+
+    seed_extras = []
+
+    with FormRow(visible=False, elem_id=f"{target_interface}_subseed_row") as seed_extra_row_1:
+        seed_extras.append(seed_extra_row_1)
         subseed = gr.Number(label='Variation seed', value=-1, elem_id=f"{target_interface}_subseed")
         subseed.style(container=False)
         random_subseed = ToolButton(random_symbol, elem_id=f"{target_interface}_random_subseed")
         reuse_subseed = ToolButton(reuse_symbol, elem_id=f"{target_interface}_reuse_subseed")
         subseed_strength = gr.Slider(label='Variation strength', value=0.0, minimum=0, maximum=1, step=0.01, elem_id=f"{target_interface}_subseed_strength")
-    with FormRow(visible=False):
+
+    with FormRow(visible=False) as seed_extra_row_2:
+        seed_extras.append(seed_extra_row_2)
         seed_resize_from_w = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize seed from width", value=0, elem_id=f"{target_interface}_seed_resize_from_w")
         seed_resize_from_h = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize seed from height", value=0, elem_id=f"{target_interface}_seed_resize_from_h")
+
     random_seed.click(fn=lambda: [-1, -1], show_progress=False, inputs=[], outputs=[seed, subseed])
     random_subseed.click(fn=lambda: -1, show_progress=False, inputs=[], outputs=[subseed])
+
+    def change_visibility(show):
+        return {comp: gr_show(show) for comp in seed_extras}
+
+    seed_checkbox.change(change_visibility, show_progress=False, inputs=[seed_checkbox], outputs=seed_extras)
+
     return seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox
 
 
@@ -306,7 +319,7 @@ def create_sampler_and_steps_selection(choices, tabname):
             chosen_sampler_name = modules.sd_samplers.samplers[0].name
 
         sampler_index = gr.Dropdown(label='Sampling method', elem_id=f"{tabname}_sampling", choices=[x.name for x in choices], value=chosen_sampler_name if tabname == 'txt2img' else "Euler a", type="index")
-        steps = gr.Slider(minimum=1, maximum=99, step=1, elem_id=f"{tabname}_steps", label="Sampling steps", value=20)
+        steps = gr.Slider(minimum=1, maximum=150, step=1, elem_id=f"{tabname}_steps", label="Sampling steps", value=20)
     return steps, sampler_index
 
 
@@ -353,9 +366,8 @@ def create_ui():
                     elif category == "dimensions":
                         with FormRow():
                             with gr.Column(elem_id="txt2img_column_size", scale=4):
-                                with FormRow(elem_id="txt2img_row_dimension"):
-                                    width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="txt2img_width")
-                                    height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="txt2img_height")
+                                width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="txt2img_width")
+                                height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="txt2img_height")
                             with gr.Column(elem_id="txt2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):
                                 res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="txt2img_res_switch_btn", label="Switch dims")
                             with gr.Column(elem_id="txt2img_column_batch"):
@@ -365,7 +377,6 @@ def create_ui():
                     elif category == "cfg":
                         with FormRow():
                             cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=6.0, elem_id="txt2img_cfg_scale")
-                            clip_skip = gr.Slider(label='CLIP skip', value=1, minimum=1, maximum=4, step=1, elem_id='txt2img_clip_skip', interactive=True)
                     elif category == "seed":
                         seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('txt2img')
                     elif category == "checkboxes":
@@ -425,7 +436,6 @@ def create_ui():
                     batch_count,
                     batch_size,
                     cfg_scale,
-                    clip_skip,
                     seed,
                     subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w,
                     seed_checkbox,  # seed_enable_extras
@@ -480,7 +490,6 @@ def create_ui():
                 (sampler_index, "Sampler"),
                 (restore_faces, "Face restoration"),
                 (cfg_scale, "CFG scale"),
-                (clip_skip, "Clip skip"),
                 (seed, "Seed"),
                 (width, "Size-1"),
                 (height, "Size-2"),
@@ -634,9 +643,8 @@ def create_ui():
                                     with gr.Tab(label="Resize to") as tab_scale_to:
                                         with FormRow():
                                             with gr.Column(elem_id="img2img_column_size", scale=4):
-                                                with FormRow():
-                                                    width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="img2img_width")
-                                                    height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="img2img_height")
+                                                width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="img2img_width")
+                                                height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="img2img_height")
                                             with gr.Column(elem_id="img2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):
                                                 res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="img2img_res_switch_btn")
 
@@ -677,8 +685,7 @@ def create_ui():
                             with FormRow():
                                 cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=6.0, elem_id="img2img_cfg_scale")
                                 image_cfg_scale = gr.Slider(minimum=0, maximum=3.0, step=0.05, label='Image CFG Scale', value=1.5, elem_id="img2img_image_cfg_scale", visible=False)
-                                denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id="img2img_denoising_strength")
-                                clip_skip = gr.Slider(label='CLIP skip', value=1, minimum=1, maximum=4, step=1, elem_id='img2img_clip_skip', interactive=True)
+                            denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id="img2img_denoising_strength")
 
                     elif category == "seed":
                         seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('img2img')
@@ -768,7 +775,6 @@ def create_ui():
                     batch_size,
                     cfg_scale,
                     image_cfg_scale,
-                    clip_skip,
                     denoising_strength,
                     seed,
                     subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox,
@@ -858,7 +864,6 @@ def create_ui():
                 (restore_faces, "Face restoration"),
                 (cfg_scale, "CFG scale"),
                 (image_cfg_scale, "Image CFG scale"),
-                (clip_skip, "Clip skip"),
                 (seed, "Seed"),
                 (width, "Size-1"),
                 (height, "Size-2"),
@@ -1401,9 +1406,9 @@ def create_ui():
 
 
     interfaces = [
-        (txt2img_interface, "From Text", "txt2img"),
-        (img2img_interface, "From Image", "img2img"),
-        (extras_interface, "Process Image", "process"),
+        (txt2img_interface, "txt2img", "txt2img"),
+        (img2img_interface, "img2img", "img2img"),
+        (extras_interface, "Extras", "process"),
         # (pnginfo_interface, "Image Info", "pnginfo"),
         # (modelmerger_interface, "Checkpoint Merger", "modelmerger"),
         (train_interface, "Train", "train"),

@@ -246,7 +246,7 @@ options_templates.update(options_section(('sd', "Stable Diffusion"), {
     "img2img_background_color": OptionInfo("#ffffff", "With img2img fill image's transparent parts with this color", ui_components.FormColorPicker, {}),
     "enable_quantization": OptionInfo(True, "Enable quantization in K samplers for sharper and cleaner results"),
     "comma_padding_backtrack": OptionInfo(20, "Increase coherency by padding from the last comma within n tokens when using more than 75 tokens", gr.Slider, {"minimum": 0, "maximum": 74, "step": 1 }),
-    "CLIP_stop_at_last_layers": OptionInfo(1, "Clip skip", gr.Slider, {"minimum": 1, "maximum": 8, "step": 1, "visible": False}),
+    "CLIP_stop_at_last_layers": OptionInfo(1, "Clip skip", gr.Slider, {"minimum": 1, "maximum": 8, "step": 1}),
     "upcast_attn": OptionInfo(False, "Upcast cross attention layer to FP32"),
     "cross_attention_optimization": OptionInfo("Sub-quadratic" if is_device_dml else "Scaled-Dot-Product", "Cross-attention optimization method", gr.Radio, lambda: {"choices": shared_items.list_crossattention() }),
     "cross_attention_options": OptionInfo([], "Cross-attention advanced options", gr.CheckboxGroup, lambda: {"choices": ['xFormers enable flash Attention', 'SDP disable memory attention']}),
@@ -401,7 +401,7 @@ options_templates.update(options_section(('extra_networks', "Extra Networks"), {
 }))
 
 options_templates.update(options_section(('ui', "User interface"), {
-    "gradio_theme": OptionInfo("black-orange", "UI theme", gr.Dropdown, lambda: {"choices": list_themes()}, refresh=refresh_themes),
+    "gradio_theme": OptionInfo("gradio/default", "UI theme", gr.Dropdown, lambda: {"choices": list_themes()}, refresh=refresh_themes),
     "theme_style": OptionInfo("Auto", "Theme mode", gr.Radio, {"choices": ["Auto", "Dark", "Light"]}),
     "return_grid": OptionInfo(True, "Show grid in results for web"),
     "return_mask": OptionInfo(False, "For inpainting, include the greyscale mask in results for web"),

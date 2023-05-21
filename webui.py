@@ -254,7 +254,6 @@ def start_ui():
         prevent_thread_lock=True,
         max_threads=64,
         show_api=True,
-        favicon_path='html/logo.ico',
     )
     shared.log.info(f'Local URL: {local_url}')
     shared.log.info(f'API Docs: {local_url[:-1]}/docs') # {local_url[:-1]}?view=api
