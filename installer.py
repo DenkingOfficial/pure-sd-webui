@@ -669,7 +669,7 @@ def run_setup():
     log.debug(f"Args: {vars(args)}")
     install_repositories()
     install_submodules()
-    install_extensions()
+    #install_extensions()
     if errors == 0:
         log.debug(f'Setup complete without errors: {round(time.time())}')
     else:

@@ -131,7 +131,6 @@ def img2img(id_task: str, mode: int, prompt: str, negative_prompt: str, prompt_s
         n_iter=n_iter,
         steps=steps,
         cfg_scale=cfg_scale,
-        clip_skip=shared.opts.CLIP_stop_at_last_layers,
         width=width,
         height=height,
         restore_faces=restore_faces,
