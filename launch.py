@@ -130,7 +130,7 @@ if __name__ == "__main__":
     if args.version:
         installer.add_args()
         installer.setup_logging(clean=False)
-        installer.log.info('SD.Next version information')
+        installer.log.info('Stable Diffusion WebUI version information')
         installer.check_python()
         installer.check_version()
         installer.check_torch()

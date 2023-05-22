@@ -11,7 +11,7 @@ try:
     from modules.cmd_args import parser
 except:
     import argparse
-    parser = argparse.ArgumentParser(description="SD.Next", conflict_handler='resolve', formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=55, indent_increment=2, width=200))
+    parser = argparse.ArgumentParser(description="Stable Diffusion WebUI", conflict_handler='resolve', formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=55, indent_increment=2, width=200))
 
 class Dot(dict): # dot notation access to dictionary attributes
     __getattr__ = dict.get
@@ -648,7 +648,7 @@ def read_options():
 # entry method when used as module
 def run_setup():
     setup_logging(args.upgrade)
-    log.info('Starting SD.Next')
+    log.info('Starting Stable Diffusion WebUI')
     read_options()
     check_python()
     if args.reset:

@@ -286,7 +286,7 @@ function monitor_server_status() {
   document.open();
   document.write(`
     <html>
-      <head><title>SD.Next</title></head>
+      <head><title>Stable Diffusion WebUI</title></head>
       <body style="background: #222222; font-size: 1rem; font-family:monospace; margin-top:20%; color:lightgray; text-align:center">
         <h1>Waiting for server...</h1>
         <script>

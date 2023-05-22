@@ -37,7 +37,7 @@ function formatTime(secs) {
 }
 
 function setTitle(progress) {
-  let title = 'SD.Next';
+  let title = 'Stable Diffusion WebUI';
   if (progress) title += ` ${progress.split(' ')[0].trim()}`;
   if (document.title != title) document.title = title;
 }
