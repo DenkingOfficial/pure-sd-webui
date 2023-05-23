@@ -1,6 +1,5 @@
 ![Last Commit](https://img.shields.io/github/last-commit/DenkingOfficial/pure-sd-webui?style=flat-square&svg=true)
 ![License](https://img.shields.io/github/license/DenkingOfficial/pure-sd-webui?style=flat-square&svg=true)
-![GitHub Status Checks](https://img.shields.io/github/checks-status/DenkingOfficial/pure-sd-webui/?style=flat-square&svg=true)
 
 # Stable Diffusion - Automatic
 
@@ -9,7 +8,11 @@ Almost clear fork of <https://github.com/vladmandic/automatic>
 Fork is as close as up-to-date with origin as time allows  
 All code changes are merged upstream whenever possible  
 
-The idea behind the fork is to remove unnecessary extesions and fix UI to be as much the same as AUTOMATIC1111s one  
+The idea behind the fork is to remove unnecessary extesions and fix UI to be as much the same as AUTOMATIC1111s one
+
+TODO:
+* Remove System Info extension
+* Restore old extension manager
 
 <br>
 
