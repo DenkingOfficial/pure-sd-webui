@@ -1,20 +1,19 @@
-[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/vladmandic)
-![Last Commit](https://img.shields.io/github/last-commit/vladmandic/human?style=flat-square&svg=true)
-![License](https://img.shields.io/github/license/vladmandic/human?style=flat-square&svg=true)
-![GitHub Status Checks](https://img.shields.io/github/checks-status/vladmandic/human/main?style=flat-square&svg=true)
+![Last Commit](https://img.shields.io/github/last-commit/DenkingOfficial/pure-sd-webui?style=flat-square&svg=true)
+![License](https://img.shields.io/github/license/DenkingOfficial/pure-sd-webui?style=flat-square&svg=true)
+![GitHub Status Checks](https://img.shields.io/github/checks-status/DenkingOfficial/pure-sd-webui/?style=flat-square&svg=true)
 
 # Stable Diffusion - Automatic
 
-*Heavily opinionated custom fork of* <https://github.com/AUTOMATIC1111/stable-diffusion-webui>  
+Almost clear fork of <https://github.com/vladmandic/automatic>  
 
 Fork is as close as up-to-date with origin as time allows  
 All code changes are merged upstream whenever possible  
 
-The idea behind the fork is to enable latest technologies and advances in text-to-image generation  
-*Sometimes this is not the same as "as simple as possible to use"*  
-If you are looking an amazing simple-to-use Stable Diffusion tool, I'd suggest [InvokeAI](https://invoke-ai.github.io/InvokeAI/) specifically due to its automated installer and ease of use  
+The idea behind the fork is to remove unnecessary extesions and fix UI to be as much the same as AUTOMATIC1111s one  
 
 <br>
+
+
 
 ### Follow [Development updates](https://github.com/vladmandic/automatic/discussions/99) for daily updates on new features/fixes
 
@@ -24,6 +23,7 @@ If you are looking an amazing simple-to-use Stable Diffusion tool, I'd suggest [
 
 <br>
 
+# Original description
 ## Notes
 
 ### Fork does differ in few things
@@ -60,17 +60,17 @@ If you are looking an amazing simple-to-use Stable Diffusion tool, I'd suggest [
 
 Hand-picked list of extensions that are deeply integrated into core workflows:
 
-- [System Info](https://github.com/vladmandic/sd-extension-system-info)
-- [ControlNet](https://github.com/Mikubill/sd-webui-controlnet)
-- [Image Browser](https://github.com/AlUlkesh/stable-diffusion-webui-images-browser)
-- [LORA](https://github.com/kohya-ss/sd-scripts) *(both training and inference)*
-- [LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS) *(both training and inference)*
-- [Model Converter](https://github.com/Akegarasu/sd-webui-model-converter)
-- [CLiP Interrogator](https://github.com/pharmapsychotic/clip-interrogator-ext)
-- [Dynamic Thresholding](https://github.com/mcmonkeyprojects/sd-dynamic-thresholding)
-- [Steps Animation](https://github.com/vladmandic/sd-extension-steps-animation)
-- [Seed Travel](https://github.com/yownas/seed_travel)
-- [Multi-Diffusion Upscaler](https://github.com/pkuliyi2015/multidiffusion-upscaler-for-automatic1111)
+- [System Info](https://github.com/vladmandic/sd-extension-system-info) ![Extension Status](https://img.shields.io/badge/Can't%20be%20removed-red?style=flat-square&svg=true)
+- [ControlNet](https://github.com/Mikubill/sd-webui-controlnet) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [Image Browser](https://github.com/AlUlkesh/stable-diffusion-webui-images-browser) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [LORA](https://github.com/kohya-ss/sd-scripts) *(both training and inference)* ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS) *(both training and inference)* ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [Model Converter](https://github.com/Akegarasu/sd-webui-model-converter) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [CLiP Interrogator](https://github.com/pharmapsychotic/clip-interrogator-ext) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [Dynamic Thresholding](https://github.com/mcmonkeyprojects/sd-dynamic-thresholding) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [Steps Animation](https://github.com/vladmandic/sd-extension-steps-animation) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [Seed Travel](https://github.com/yownas/seed_travel) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
+- [Multi-Diffusion Upscaler](https://github.com/pkuliyi2015/multidiffusion-upscaler-for-automatic1111) ![Extension Status](https://img.shields.io/badge/REMOVED-green?style=flat-square&svg=true)
 
 ### User Interface
 
