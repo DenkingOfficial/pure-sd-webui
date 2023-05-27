@@ -157,6 +157,8 @@ elif torch.cuda.is_available() and torch.version.cuda:
     backend = 'cuda'
 elif torch.cuda.is_available() and torch.version.rocm:
     backend = 'rocm'
+elif sys.platform == 'darwin':
+    backend = 'mps'
 else:
     backend = 'cpu'
 
