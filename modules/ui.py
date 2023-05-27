@@ -383,9 +383,10 @@ def create_ui():
                             with FormRow(elem_id="txt2img_hires_fix_row1", variant="compact"):
                                 hr_upscaler = gr.Dropdown(label="Upscaler", elem_id="txt2img_hr_upscaler", choices=[*modules.shared.latent_upscale_modes, *[x.name for x in modules.shared.sd_upscalers]], value=modules.shared.latent_upscale_default_mode)
                                 hr_second_pass_steps = gr.Slider(minimum=0, maximum=150, step=1, label='Hires steps', value=0, elem_id="txt2img_hires_steps")
-                                denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.7, elem_id="txt2img_denoising_strength")
                             with FormRow(elem_id="txt2img_hires_fix_row2", variant="compact"):
+                                denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.7, elem_id="txt2img_denoising_strength")
                                 hr_scale = gr.Slider(minimum=1.0, maximum=4.0, step=0.05, label="Upscale by", value=2.0, elem_id="txt2img_hr_scale")
+                            with FormRow(elem_id="txt2img_hires_fix_row3", variant="compact"):
                                 hr_resize_x = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize width to", value=0, elem_id="txt2img_hr_resize_x")
                                 hr_resize_y = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize height to", value=0, elem_id="txt2img_hr_resize_y")
                     elif category == "override_settings":
@@ -406,7 +407,7 @@ def create_ui():
                     None,
                     _js="onCalcResolutionHires",
                     inputs=hr_resolution_preview_inputs,
-                    outputs=[],
+                    outputs=[hr_final_resolution],
                     show_progress=False,
                 )
 
