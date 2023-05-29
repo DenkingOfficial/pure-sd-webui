@@ -59,4 +59,3 @@ venv
 !/models/VAE-approx
 !/models/VAE-approx/model.pt
 webui.log
-webui.bat
