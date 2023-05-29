@@ -49,10 +49,14 @@ venv
 /tmp
 /log
 /cert
-.vscode/
+/.vscode
+/lot-of-scripts
+/train/templates
+/modelUtils
 
 # unexcluded so folders get created
 !/repositories/.placeholder
 !/models/VAE-approx
 !/models/VAE-approx/model.pt
 webui.log
+webui.bat
