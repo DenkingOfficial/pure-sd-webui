@@ -9,6 +9,7 @@ setup.log
 /user.css
 /webui-user.bat
 /webui-user.sh
+/webui.log
 /html/extensions.json
 /javascript/themes.json
 node_modules
@@ -58,4 +59,3 @@ venv
 !/repositories/.placeholder
 !/models/VAE-approx
 !/models/VAE-approx/model.pt
-webui.log
