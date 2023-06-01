@@ -447,7 +447,7 @@ def create_ui():
                     cfg_scale,
                     seed,
                     subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w,
-                    seed_checkbox,  # seed_enable_extras
+                    seed_checkbox,
                     height,
                     width,
                     enable_hr,
@@ -459,7 +459,6 @@ def create_ui():
                     hr_resize_y,
                     override_settings,
                 ] + custom_inputs,
-
                 outputs=[
                     txt2img_gallery,
                     generation_info,
