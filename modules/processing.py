@@ -147,6 +147,7 @@ class StableDiffusionProcessing:
         self.is_hr_pass = False
         opts.data['clip_skip'] = opts.CLIP_stop_at_last_layers
 
+
     @property
     def sd_model(self):
         return shared.sd_model
