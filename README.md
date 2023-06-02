@@ -22,7 +22,7 @@ TODO:
 
 <br>
 
-![screenshot](javascript/black-orange.jpg)
+![screenshot](html/black-orange.jpg)
 
 <br>
 

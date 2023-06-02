@@ -11,7 +11,7 @@ setup.log
 /webui-user.sh
 /webui.log
 /html/extensions.json
-/javascript/themes.json
+/html/themes.json
 node_modules
 pnpm-lock.yaml
 package-lock.json
