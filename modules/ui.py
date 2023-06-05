@@ -554,9 +554,7 @@ def create_ui():
 
                 def add_copy_image_controls(tab_name, elem):
                     with gr.Row(variant="compact", elem_id=f"img2img_copy_to_{tab_name}"):
-                        gr.HTML("Copy image to: ", elem_id=f"img2img_label_copy_to_{tab_name}")
-
-                        for title, name in zip(['img2img', 'sketch', 'inpaint', 'inpaint sketch'], ['img2img', 'sketch', 'inpaint', 'inpaint_sketch']):
+                        for title, name in zip(['➠ img2img', '➠ sketch', '➠ inpaint', '➠ inpaint sketch'], ['img2img', 'sketch', 'inpaint', 'inpaint_sketch']):
                             if name == tab_name:
                                 gr.Button(title, interactive=False)
                                 copy_image_destinations[name] = elem
@@ -605,9 +603,9 @@ def create_ui():
                             "<br>Add inpaint batch mask directory to enable inpaint batch processing."
                             f"{hidden}</p>"
                         )
-                        img2img_batch_input_dir = gr.Textbox(label="Input directory", **modules.shared.hide_dirs, elem_id="img2img_batch_input_dir")
-                        img2img_batch_output_dir = gr.Textbox(label="Output directory", **modules.shared.hide_dirs, elem_id="img2img_batch_output_dir")
-                        img2img_batch_inpaint_mask_dir = gr.Textbox(label="Inpaint batch mask directory (required for inpaint batch processing only)", **modules.shared.hide_dirs, elem_id="img2img_batch_inpaint_mask_dir")
+                        img2img_batch_input_dir = gr.Textbox(label="Inpaint batch input directory", **modules.shared.hide_dirs, elem_id="img2img_batch_input_dir")
+                        img2img_batch_output_dir = gr.Textbox(label="Inpaint batch output directory", **modules.shared.hide_dirs, elem_id="img2img_batch_output_dir")
+                        img2img_batch_inpaint_mask_dir = gr.Textbox(label="Inpaint batch mask directory", **modules.shared.hide_dirs, elem_id="img2img_batch_inpaint_mask_dir")
 
                     img2img_tabs = [tab_img2img, tab_sketch, tab_inpaint, tab_inpaint_color, tab_inpaint_upload, tab_batch]
                     img2img_image_inputs = [init_img, sketch, init_img_with_mask, inpaint_color_sketch] # pylint: disable=unused-variable
@@ -635,7 +633,7 @@ def create_ui():
                     )
 
                 with FormRow():
-                    resize_mode = gr.Radio(label="Resize mode", elem_id="resize_mode", choices=["Just resize", "Crop and resize", "Resize and fill", "Just resize (latent upscale)"], type="index", value="Just resize")
+                    resize_mode = gr.Radio(label="Resize mode", elem_id="resize_mode", choices=["Resize fixed", "Crop and resize", "Resize and fill", "Resize using Latent upscale"], type="index", value="Resize and fill")
 
                 for category in ordered_ui_categories():
                     if category == "sampler":
