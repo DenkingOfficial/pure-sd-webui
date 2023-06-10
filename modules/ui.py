@@ -1644,7 +1644,7 @@ def html_head():
         head += f'<script type="module" src="{webpath(script.path)}"></script>\n'
         added.append(script.path)
     added = [a.replace(script_path, '').replace('\\', '/') for a in added]
-    modules.shared.log.debug(f'Adding JS scripts: {added}')
+    # modules.shared.log.debug(f'Adding JS scripts: {added}')
     return head
 
 
@@ -1677,7 +1677,7 @@ def html_css():
     if os.path.exists(os.path.join(data_path, "user.css")):
         head += stylesheet(os.path.join(data_path, "user.css"))
     added = [a.replace(script_path, '').replace('\\', '/') for a in added]
-    modules.shared.log.debug(f'Adding CSS stylesheets: {added}')
+    # modules.shared.log.debug(f'Adding CSS stylesheets: {added}')
     return head
 
 
