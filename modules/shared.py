@@ -643,7 +643,13 @@ class Options:
 
     def dumpjson(self):
         d = {k: self.data.get(k, self.data_labels.get(k).default) for k in self.data_labels.keys()}
-        return json.dumps(d)
+        metadata = {
+            k: {
+                "is_stored": k in self.data,
+                "tab_name": v.section[0]
+            } for k, v in self.data_labels.items()
+        }
+        return json.dumps({"values": d, "metadata": metadata})
 
     def add_option(self, key, info):
         self.data_labels[key] = info
