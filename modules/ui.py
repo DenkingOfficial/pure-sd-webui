@@ -1497,9 +1497,10 @@ def create_ui():
                 show_progress=info.refresh is not None,
             )
 
-        image_cfg_scale_visibility = (modules.shared.sd_model is not None) and hasattr(modules.shared.sd_model, 'cond_stage_key') and (modules.shared.sd_model.cond_stage_key == "edit") # pix2pix
-        text_settings.change(fn=lambda: gr.update(visible=image_cfg_scale_visibility), inputs=[], outputs=[image_cfg_scale])
-        demo.load(fn=lambda: gr.update(visible=image_cfg_scale_visibility), inputs=[], outputs=[image_cfg_scale])
+        # Finaly, he found it
+        # image_cfg_scale_visibility = (modules.shared.sd_model is not None) and hasattr(modules.shared.sd_model, 'cond_stage_key') and (modules.shared.sd_model.cond_stage_key == "edit") # pix2pix
+        # text_settings.change(fn=lambda: gr.update(visible=image_cfg_scale_visibility), inputs=[], outputs=[image_cfg_scale])
+        # demo.load(fn=lambda: gr.update(visible=image_cfg_scale_visibility), inputs=[], outputs=[image_cfg_scale])
 
         button_set_checkpoint = gr.Button('Change checkpoint', elem_id='change_checkpoint', visible=False)
         button_set_checkpoint.click(
