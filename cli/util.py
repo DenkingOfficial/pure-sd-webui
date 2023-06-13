@@ -66,7 +66,7 @@ def get_memory():
                 'events': warnings,
                 'events': events,
             })
-    except:
+    except Exception:
         pass
     return Map(mem)
 
