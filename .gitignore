@@ -1,5 +1,6 @@
 # defaults
 __pycache__
+.ruff_cache
 setup.log
 /cache.json
 /metadata.json
