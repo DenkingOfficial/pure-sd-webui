@@ -146,7 +146,7 @@ class StableDiffusionProcessing:
         self.clip_skip = opts.CLIP_stop_at_last_layers
         self.iteration = 0
         self.is_hr_pass = False
-        # opts.data['clip_skip'] = opts.CLIP_stop_at_last_layers # potentially can break
+        opts.data['clip_skip'] = opts.CLIP_stop_at_last_layers
 
 
     @property
