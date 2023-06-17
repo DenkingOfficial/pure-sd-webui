@@ -235,8 +235,8 @@ def start_ui():
     global local_url # pylint: disable=global-statement
     gradio_kwargs = {
             "version": f'0.0.{installer.git_commit}',
-            "title": "SD.Next",
-            "description": "SD.Next",
+            "title": "Stable Diffusion WebUI",
+            "description": "Stable Diffusion WebUI",
     }
     if cmd_opts.docs:
         gradio_kwargs.update({
