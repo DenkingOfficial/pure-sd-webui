@@ -6,6 +6,7 @@ import xmltodict
 from rich import print # pylint: disable=redefined-builtin
 from util import log, Map
 
+
 def get_nvidia_smi(output='dict'):
     smi = shutil.which('nvidia-smi')
     if smi is None:
@@ -25,6 +26,8 @@ def get_nvidia_smi(output='dict'):
         return d
     elif output == 'json':
         return json.dumps(d, indent=4)
+    return None
+
 
 if __name__ == "__main__":
     res = get_nvidia_smi(output='dict')
