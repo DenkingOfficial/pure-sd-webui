@@ -2,6 +2,7 @@
 __pycache__
 .ruff_cache
 setup.log
+.vscode
 /cache.json
 /metadata.json
 /config.json
