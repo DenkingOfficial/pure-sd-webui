@@ -13,7 +13,7 @@ from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call, wrap_grad
 from modules import sd_hijack, sd_models, script_callbacks, ui_extensions, deepbooru, extra_networks, ui_common, ui_postprocessing, ui_loadsave, ui_train, ui_models
 from modules.ui_components import FormRow, FormColumn, FormGroup, ToolButton, FormHTML # pylint: disable=unused-import
 from modules.paths import script_path, data_path
-from modules.shared import opts, cmd_opts, backend, Backend
+from modules.shared import opts, cmd_opts
 from modules import prompt_parser
 import modules.codeformer_model
 import modules.generation_parameters_copypaste as parameters_copypaste
@@ -211,13 +211,21 @@ def update_token_counter(text, steps):
         prompt_schedules = [[[steps, text]]]
     flat_prompts = reduce(lambda list1, list2: list1+list2, prompt_schedules)
     prompts = [prompt_text for step, prompt_text in flat_prompts]
-    if backend == Backend.ORIGINAL:
+    if modules.shared.backend == modules.shared.Backend.ORIGINAL:
         token_count, max_length = max([sd_hijack.model_hijack.get_prompt_lengths(prompt) for prompt in prompts], key=lambda args: args[0])
-    else:
-        tokenizer = modules.shared.sd_model.tokenizer
-        has_bos_token, has_eos_token = tokenizer.bos_token_id is not None, tokenizer.eos_token_id is not None
-        token_count = max([len(modules.shared.sd_model.tokenizer(prompt)) for prompt in prompts]) - int(has_bos_token) - int(has_eos_token)
-        max_length = tokenizer.model_max_length - int(has_bos_token) - int(has_eos_token)
+    elif modules.shared.backend == modules.shared.Backend.DIFFUSERS:
+        if modules.shared.sd_model is not None:
+            tokenizer = modules.shared.sd_model.tokenizer
+            has_bos_token = tokenizer.bos_token_id is not None
+            has_eos_token = tokenizer.eos_token_id is not None
+            ids = [modules.shared.sd_model.tokenizer(prompt) for prompt in prompts]
+            if len(ids) > 0 and hasattr(ids[0], 'input_ids'):
+                ids = [x.input_ids for x in ids]
+            token_count = max([len(x) for x in ids]) - int(has_bos_token) - int(has_eos_token)
+            max_length = tokenizer.model_max_length - int(has_bos_token) - int(has_eos_token)
+        else:
+            token_count = 0
+            max_length = 75
     return f"<span class='gr-box gr-text-input'>{token_count}/{max_length}</span>"
 
 
@@ -328,7 +336,10 @@ def create_override_settings_dropdown(tabname, row): # pylint: disable=unused-ar
     return dropdown
 
 
-def create_ui(startup_timer):
+def create_ui(startup_timer = None):
+    if startup_timer is None:
+        from modules import timer
+        startup_timer = timer.Timer()
     import modules.img2img # pylint: disable=redefined-outer-name
     import modules.txt2img # pylint: disable=redefined-outer-name
     reload_javascript()
@@ -341,7 +352,7 @@ def create_ui(startup_timer):
         txt_prompt_img = gr.File(label="", elem_id="txt2img_prompt_image", file_count="single", type="binary", visible=False)
         with FormRow(variant='compact', elem_id="txt2img_extra_networks", visible=False) as extra_networks_ui:
             from modules import ui_extra_networks
-            extra_networks_ui = ui_extra_networks.create_ui(extra_networks_ui, extra_networks_button, 'txt2img')
+            extra_networks_ui = ui_extra_networks.create_ui(extra_networks_ui, extra_networks_button, 'txt2img', skip_indexing=opts.extra_network_skip_indexing)
         with gr.Row().style(equal_height=False, elem_id="txt2img_interface"):
             with gr.Column(variant='compact', elem_id="txt2img_settings"):
                 for category in ordered_ui_categories():
@@ -506,7 +517,7 @@ def create_ui(startup_timer):
 
         with FormRow(variant='compact', elem_id="img2img_extra_networks", visible=False) as extra_networks_ui:
             from modules import ui_extra_networks
-            extra_networks_ui_img2img = ui_extra_networks.create_ui(extra_networks_ui, extra_networks_button, 'img2img')
+            extra_networks_ui_img2img = ui_extra_networks.create_ui(extra_networks_ui, extra_networks_button, 'img2img', skip_indexing=opts.extra_network_skip_indexing)
 
         with FormRow().style(equal_height=False, elem_id="img2img_interface"):
             with gr.Column(variant='compact', elem_id="img2img_settings"):
@@ -526,7 +537,7 @@ def create_ui(startup_timer):
 
                 with gr.Tabs(elem_id="mode_img2img"):
                     img2img_selected_tab = gr.State(0) # pylint: disable=abstract-class-instantiated
-                    with gr.TabItem('img2img', id='img2img', elem_id="img2img_img2img_tab") as tab_img2img:
+                    with gr.TabItem('Img2Img', id='img2img', elem_id="img2img_img2img_tab") as tab_img2img:
                         init_img = gr.Image(label="Image for img2img", elem_id="img2img_image", show_label=False, source="upload", interactive=True, type="pil", tool="editor", image_mode="RGBA").style(height=480)
                         add_copy_image_controls('img2img', init_img)
 
@@ -902,9 +913,13 @@ def create_ui(startup_timer):
                     res = comp(label=info.label, value=fun(), elem_id=elem_id, **(args or {}))
                     create_refresh_button(res, info.refresh, info.component_args, f"refresh_{key}")
         else:
-            res = comp(label=info.label, value=fun(), elem_id=elem_id, **(args or {}))
+            try:
+                res = comp(label=info.label, value=fun(), elem_id=elem_id, **(args or {}))
+            except Exception as e:
+                modules.shared.log.error(f'Error creating setting: {key} {e}')
+                res = None
 
-        if not is_quicksettings:
+        if res is not None and not is_quicksettings:
             res.change(fn=None, inputs=res, _js=f'(val) => markIfModified("{key}", val)')
             dirty_indicator.click(fn=lambda: getattr(opts, key), outputs=res, show_progress=False)
             dirtyable_setting.__exit__()
@@ -1023,7 +1038,8 @@ def create_ui(startup_timer):
                 create_dirty_indicator("show_all_pages", [], interactive=False)
 
         def unload_sd_weights():
-            modules.sd_models.unload_model_weights()
+            modules.sd_models.unload_model_weights(op='model')
+            modules.sd_models.unload_model_weights(op='refiner')
 
         def reload_sd_weights():
             modules.sd_models.reload_model_weights()
@@ -1181,12 +1197,7 @@ def html_body():
     body = ''
     inline = ''
     if opts.theme_style != 'Auto':
-        if opts.gradio_theme == 'black-orange':
-            modules.shared.log.info('Theme does not support custom mode')
-        else:
-            inline += f"set_theme('{opts.theme_style.lower()}');"
-    if opts.gradio_theme == 'black-orange':
-        inline += "set_theme('dark');"
+        inline += f"set_theme('{opts.theme_style.lower()}');"
     body += f'<script type="text/javascript">{inline}</script>\n'
     return body
 

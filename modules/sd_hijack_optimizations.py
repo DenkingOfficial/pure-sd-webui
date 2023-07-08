@@ -282,7 +282,7 @@ def sub_quad_attention_forward(self, x, context=None, mask=None):
 
     dtype = q.dtype
     if shared.opts.upcast_attn:
-        q, k, v = q.float(), k.float(), v.float()
+        q, k = q.float(), k.float()
 
     x = sub_quad_attention(q, k, v, q_chunk_size=shared.opts.sub_quad_q_chunk_size, kv_chunk_size=shared.opts.sub_quad_kv_chunk_size, chunk_threshold=shared.opts.sub_quad_chunk_threshold, use_checkpoint=self.training)
 
@@ -508,7 +508,7 @@ def sdp_attnblock_forward(self, x):
     q, k, v = (rearrange(t, 'b c h w -> b (h w) c') for t in (q, k, v))
     dtype = q.dtype
     if shared.opts.upcast_attn:
-        q, k = q.float(), k.float()
+        q, k, v = q.float(), k.float(), v.float()
     q = q.contiguous()
     k = k.contiguous()
     v = v.contiguous()

@@ -8,12 +8,15 @@ if sys.platform == "darwin":
     from modules import mac_specific # pylint: disable=ungrouped-imports
 
 cuda_ok = torch.cuda.is_available()
+previous_oom = 0
+
 
 def has_mps() -> bool:
     if sys.platform != "darwin":
         return False
     else:
         return mac_specific.has_mps
+
 
 def extract_device_id(args, name): # pylint: disable=redefined-outer-name
     for x in range(len(args)):
@@ -61,6 +64,18 @@ def get_device_for(task):
 
 
 def torch_gc(force=False):
+    mem = memstats.memory_stats()
+    gpu = mem.get('gpu', {})
+    oom = gpu.get('oom', 0)
+    used = round(100 * gpu.get('used', 0) / gpu.get('total', 1))
+    global previous_oom # pylint: disable=global-statement
+    if oom > previous_oom:
+        previous_oom = oom
+        shared.log.warning(f'GPU out-of-memory error: {mem}')
+    if used > 90:
+        shared.log.warning(f'GPU high memory utilization: {used}% {mem}')
+        force = True
+
     if shared.opts.disable_gc and not force:
         return
     collected = gc.collect()
@@ -122,6 +137,7 @@ def set_cuda_params():
             try:
                 torch.backends.cudnn.benchmark = True
                 if shared.opts.cudnn_benchmark:
+                    shared.log.debug('Torch enable cuDNN benchmark')
                     torch.backends.cudnn.benchmark_limit = 0
                 torch.backends.cudnn.allow_tf32 = shared.opts.cuda_allow_tf32
             except Exception:
@@ -175,8 +191,10 @@ else:
     backend = 'cpu'
 
 if backend == 'ipex':
-    #Fix broken function in ipex 1.13.120+xpu
+    #Fix broken functions with ipex
     from modules.sd_hijack_utils import CondFunc
+    torch.cuda.empty_cache = torch.xpu.empty_cache
+
     #Functions with dtype errors:
     CondFunc('torch.nn.modules.GroupNorm.forward',
         lambda orig_func, *args, **kwargs: orig_func(args[0], args[1].to(args[0].weight.data.dtype)),
@@ -191,8 +209,12 @@ if backend == 'ipex':
         lambda *args, **kwargs: args[1].device != torch.device("cpu"))
     #SDE Samplers:
     CondFunc('torch.Generator',
-        lambda _, device: torch.xpu.Generator(device),
-        lambda _, device: device != torch.device("cpu") and device != "cpu")
+        lambda orig_func, device: torch.xpu.Generator(device),
+        lambda orig_func, device: device != torch.device("cpu") and device != "cpu")
+    #Diffusers Float64 (ARC GPUs doesn't support double or Float64):
+    CondFunc('torch.from_numpy',
+        lambda orig_func, *args, **kwargs: orig_func(args[0].astype('float32')),
+        lambda *args, **kwargs: args[1].dtype == float)
     #ControlNet:
     CondFunc('torch.batch_norm',
         lambda orig_func, *args, **kwargs: orig_func(args[0].to("cpu"),

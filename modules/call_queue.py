@@ -4,7 +4,7 @@ import time
 import cProfile
 import pstats
 import io
-from rich import print
+from rich import print # pylint: disable=redefined-builtin
 from modules import shared, progress, errors
 
 queue_lock = threading.Lock()

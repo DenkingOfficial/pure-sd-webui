@@ -63,7 +63,6 @@ def get_memory():
                 'gpu-allocated': allocated,
                 'gpu-reserved': reserved,
                 'gpu-inactive': inactive,
-                'events': warnings,
                 'events': events,
             })
     except Exception:

@@ -1,7 +1,6 @@
 import inspect
 from typing import Any, Optional, Dict, List
 from pydantic import BaseModel, Field, create_model # pylint: disable=no-name-in-module
-from typing_extensions import Literal
 from inflection import underscore
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img
 import modules.shared as shared
@@ -133,7 +132,7 @@ class ImageToImageResponse(BaseModel):
     info: str
 
 class ExtrasBaseRequest(BaseModel):
-    resize_mode: Literal[0, 1] = Field(default=0, title="Resize Mode", description="Sets the resize mode: 0 to upscale by upscaling_resize amount, 1 to upscale up to upscaling_resize_h x upscaling_resize_w.")
+    resize_mode: float = Field(default=0, title="Resize Mode", description="Sets the resize mode: 0 to upscale by upscaling_resize amount, 1 to upscale up to upscaling_resize_h x upscaling_resize_w.")
     show_extras_results: bool = Field(default=True, title="Show results", description="Should the backend return the generated image?")
     gfpgan_visibility: float = Field(default=0, title="GFPGAN Visibility", ge=0, le=1, allow_inf_nan=False, description="Sets the visibility of GFPGAN, values should be between 0 and 1.")
     codeformer_visibility: float = Field(default=0, title="CodeFormer Visibility", ge=0, le=1, allow_inf_nan=False, description="Sets the visibility of CodeFormer, values should be between 0 and 1.")
@@ -172,6 +171,10 @@ class PNGInfoRequest(BaseModel):
 class PNGInfoResponse(BaseModel):
     info: str = Field(title="Image info", description="A string with the parameters used to generate the image")
     items: dict = Field(title="Items", description="An object containing all the info the image had")
+
+class LogRequest(BaseModel):
+    lines: int = Field(default=100, title="Lines", description="How many lines to return")
+    clear: bool = Field(default=False, title="Clear", description="Should the log be cleared after returning the lines?")
 
 class ProgressRequest(BaseModel):
     skip_current_image: bool = Field(default=False, title="Skip current image", description="Skip current image serialization")

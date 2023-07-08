@@ -47,6 +47,7 @@ group.add_argument("--use-rocm", default=False, action='store_true', help="Force
 group.add_argument('--subpath', type=str, help='Customize the URL subpath for usage with reverse proxy')
 group.add_argument('--backend', type=str, choices=['original', 'diffusers'], required=False, help='force model pipeline type')
 
+
 # removed args are added here as hidden in fixed format for compatbility reasons
 group.add_argument("-f", action='store_true', help=argparse.SUPPRESS)  # allows running as root; implemented outside of webui
 group.add_argument("--ui-settings-file", type=str, help=argparse.SUPPRESS, default=os.path.join(data_path, 'config.json'))

@@ -12,8 +12,8 @@
     {"id":"","label":"⇅","localized":"","hint":"Swap image height and width values"}
   ],
   "prompts": [
-    {"id":"","label":"Prompt","localized":"","hint":"Prompt"},
-    {"id":"","label":"Negative prompt","localized":"","hint":"Negative Prompt"}
+    {"id":"","label":"Prompt","localized":"","hint":"Type what you want to see in the image"},
+    {"id":"","label":"Negative prompt","localized":"","hint":"Type what you DON'T want to see in the image"}
   ],
   "common keywords": [
     {"id":"","label":"fp16","localized":"","hint":"Number representation in 16-bit floating point format"},
@@ -146,7 +146,7 @@
     {"id":"","label":"System Paths","localized":"","hint":""},
     {"id":"","label":"Image Options","localized":"","hint":""},
     {"id":"","label":"Image Processing","localized":"","hint":""},
-    {"id":"","label":"Output Paths","localized":"","hint":""},
+    {"id":"","label":"Image Paths","localized":"","hint":""},
     {"id":"","label":"User Interface","localized":"","hint":""},
     {"id":"","label":"Live Previews","localized":"","hint":""},
     {"id":"","label":"Sampler Settings","localized":"","hint":""},
@@ -524,9 +524,9 @@
   ],
   "scripts": [
     {"id":"","label":"Script","localized":"","hint":""},
-    {"id":"","label":"Swap X/Y axes","localized":"","hint":""},
-    {"id":"","label":"Swap Y/Z axes","localized":"","hint":""},
-    {"id":"","label":"Swap X/Z axes","localized":"","hint":""},
+    {"id":"","label":"Swap X/Y","localized":"","hint":""},
+    {"id":"","label":"Swap Y/Z","localized":"","hint":""},
+    {"id":"","label":"Swap X/Z","localized":"","hint":""},
     {"id":"","label":"Resize to","localized":"","hint":""},
     {"id":"","label":"Resize by","localized":"","hint":""},
     {"id":"","label":"Use via API","localized":"","hint":""},

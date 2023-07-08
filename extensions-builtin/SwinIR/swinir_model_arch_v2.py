@@ -846,7 +846,7 @@ class Swin2SR(nn.Module):
                 nn.Conv2d(embed_dim, num_feat, 3, 1, 1),
                 nn.LeakyReLU(inplace=True))
             self.conv_last_hf = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
-            
+
         elif self.upsampler == 'pixelshuffledirect':
             # for lightweight SR (to save parameters)
             self.upsample = UpsampleOneStep(upscale, embed_dim, num_out_ch,

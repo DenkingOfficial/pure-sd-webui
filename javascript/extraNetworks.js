@@ -1,15 +1,21 @@
+let globalPopup = null;
+let globalPopupInner = null;
+const activePromptTextarea = {};
+
 function setupExtraNetworksForTab(tabname) {
   gradioApp().querySelector(`#${tabname}_extra_tabs`).classList.add('extra-networks');
   const tabs = gradioApp().querySelector(`#${tabname}_extra_tabs > div`);
   const search = gradioApp().querySelector(`#${tabname}_extra_search textarea`);
   const refresh = gradioApp().getElementById(`${tabname}_extra_refresh`);
-  const description = gradioApp().getElementById(`${tabname}_description_input`);
+  const description = gradioApp().getElementById(`${tabname}_description`);
   const close = gradioApp().getElementById(`${tabname}_extra_close`);
+  const en = gradioApp().getElementById(`${tabname}_extra_networks`);
   search.classList.add('search');
-  tabs.appendChild(search);
+  description.classList.add('description');
   tabs.appendChild(refresh);
   tabs.appendChild(close);
-  tabs.appendChild(descriptInput);
+  tabs.appendChild(search);
+  tabs.appendChild(description);
   search.addEventListener('input', (evt) => {
     searchTerm = search.value.toLowerCase();
     gradioApp().querySelectorAll(`#${tabname}_extra_tabs div.card`).forEach((elem) => {
@@ -18,14 +24,48 @@ function setupExtraNetworksForTab(tabname) {
       elem.style.display = text.indexOf(searchTerm) == -1 ? 'none' : '';
     });
   });
-}
 
-const activePromptTextarea = {};
+  intersectionObserver = new IntersectionObserver((entries) => {
+    if (!en) return
+    for (el of Array.from(gradioApp().querySelectorAll('.extra-networks-page'))) el.style.height = window.opts.extra_networks_height + 'vh';
+    if (entries[0].intersectionRatio > 0) {
+      if (window.opts.extra_networks_card_cover === 'cover') {
+        en.style.transition = '';
+        en.style.zIndex = 9999;
+        en.style.position = 'absolute';
+        en.style.right = 'unset';
+        en.style.width = 'unset';
+        en.style.height = 'unset';
+        gradioApp().getElementById(`${tabname}_settings`).parentNode.style.width = 'unset'
+      } else if (window.opts.extra_networks_card_cover === 'sidebar') {
+        en.style.transition = 'width 0.2s ease';
+        en.style.zIndex = 0;
+        en.style.position = 'absolute';
+        en.style.right = '0';
+        en.style.width = window.opts.extra_networks_sidebar_width + 'vw';
+        en.style.height = '-webkit-fill-available'
+        gradioApp().getElementById(`${tabname}_settings`).parentNode.style.width = 100 - 2 - window.opts.extra_networks_sidebar_width + 'vw';
+      } else {
+        en.style.transition = '';
+        en.style.zIndex = 0;
+        en.style.position = 'relative';
+        en.style.right = 'unset';
+        en.style.width = 'unset';
+        en.style.height = 'unset';
+        gradioApp().getElementById(`${tabname}_settings`).parentNode.style.width = 'unset'
+      }
+    } else {
+      en.style.width = 0;
+      gradioApp().getElementById(`${tabname}_settings`).parentNode.style.width = 'unset'
+    }
+  });
+  intersectionObserver.observe(en); // monitor visibility of 
+}
 
 function setupExtraNetworks() {
   setupExtraNetworksForTab('txt2img');
   setupExtraNetworksForTab('img2img');
-
+  
   function registerPrompt(tabname, id) {
     const textarea = gradioApp().querySelector(`#${id} > label > textarea`);
     if (!activePromptTextarea[tabname]) activePromptTextarea[tabname] = textarea;
@@ -96,9 +136,10 @@ function saveCardPreview(event, tabname, filename) {
 }
 
 function saveCardDescription(event, tabname, filename, descript) {
+  console.log('saveCardDescription', event, tabname, filename, descript);
   const textarea = gradioApp().querySelector(`#${tabname}_description_filename  > label > textarea`);
   const button = gradioApp().getElementById(`${tabname}_save_description`);
-  const descriptInput = gradioApp().getElementById(`${tabname}_description_input`);
+  const description = gradioApp().getElementById(`${tabname}_description`);
   textarea.value = filename;
   description.value = descript;
   updateInput(textarea);
@@ -108,13 +149,14 @@ function saveCardDescription(event, tabname, filename, descript) {
 }
 
 function readCardDescription(event, tabname, filename, descript, extraPage, cardName) {
+  console.log('readCardDescription', event, tabname, filename, descript, extraPage, cardName);
   const textarea = gradioApp().querySelector(`#${tabname}_description_filename  > label > textarea`);
-  const description_textarea = gradioApp().querySelector(`#${tabname}_description_input > label > textarea`);
+  const description = gradioApp().querySelector(`#${tabname}_description > label > textarea`);
   const button = gradioApp().getElementById(`${tabname}_read_description`);
   textarea.value = filename;
-  description_textarea.value = descript;
+  description.value = descript;
   updateInput(textarea);
-  updateInput(description_textarea);
+  updateInput(description);
   button.click();
   event.stopPropagation();
   event.preventDefault();
@@ -128,8 +170,6 @@ function extraNetworksSearchButton(tabs_id, event) {
   updateInput(searchTextarea);
 }
 
-let globalPopup = null;
-let globalPopupInner = null;
 function popup(contents) {
   if (!globalPopup) {
     globalPopup = document.createElement('div');
@@ -153,10 +193,23 @@ function popup(contents) {
 
 function readCardMetadata(event, extraPage, cardName) {
   requestGet('./sd_extra_networks/metadata', { page: extraPage, item: cardName }, (data) => {
-    if (data && data.metadata) {
+    if (data?.metadata && (typeof(data?.metadata) === 'string')) {
       elem = document.createElement('pre');
       elem.classList.add('popup-metadata');
       elem.textContent = data.metadata;
+      popup(elem);
+    }
+  }, () => {});
+  event.stopPropagation();
+  event.preventDefault();
+}
+
+function readCardInformation(event, extraPage, cardName) {
+  requestGet('./sd_extra_networks/info', { page: extraPage, item: cardName }, (data) => {
+    if (data?.info && (typeof(data?.info) === 'string')) {
+      elem = document.createElement('pre');
+      elem.classList.add('popup-metadata');
+      elem.textContent = data.info;
       popup(elem);
     }
   }, () => {});
