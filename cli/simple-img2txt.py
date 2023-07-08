@@ -44,7 +44,7 @@ def encode(f):
 
 def generate(num: int = 0):
     log.info(f'sending generate request: {num+1} {options}')
-    options['init_images'] = [encode('../html/logo.png')]
+    options['init_images'] = []
     data = post('/sdapi/v1/img2img', options)
     if 'images' in data:
         for i in range(len(data['images'])):

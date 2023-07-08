@@ -60,7 +60,6 @@ async function setHints() {
   if (Object.keys(opts).length === 0) return;
   if (!locale.el) {
     tooltipCreate();
-    logMonitorCreate();
   }
   let localized = 0;
   let hints = 0;

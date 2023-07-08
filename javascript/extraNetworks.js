@@ -56,7 +56,7 @@ function setupExtraNetworksForTab(tabname) {
       }
     } else {
       en.style.width = 0;
-      gradioApp().getElementById(`${tabname}_settings`).parentNode.style.width = 'unset'
+      // gradioApp().getElementById(`${tabname}_settings`).parentNode.style.width = 'unset'
     }
   });
   intersectionObserver.observe(en); // monitor visibility of 

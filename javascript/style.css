@@ -1,7 +1,6 @@
 :root, .dark{ --checkbox-label-gap: 0.25em 0.1em; --section-header-text-size: 12pt; --block-background-fill: transparent;}
 a { font-weight: bold; cursor: pointer; }
-div.gradio-container{ max-width: unset !important; padding: 8px !important; }
-div.tabitem { padding: 0 !important; }
+div.gradio-container{ max-width: unset !important; }
 div.form{ border-width: 0; box-shadow: none; background: transparent; overflow: visible; gap: 0.5em; }
 div.compact{ gap: 1em; }
 div.gradio-html.min{ min-height: 0; }
@@ -570,15 +569,3 @@ div.controlnet_main_options { display: grid; grid-template-columns: 1fr 1fr; gri
 #refresh_tac_refreshTempFiles { display: none; }
 #train_tab { flex-flow: row-reverse; }
 #models_tab { flex-flow: row-reverse; }
-
-.log-monitor { 
-  display: none;
-  justify-content: unset !important;
-  overflow: hidden;
-  padding: 0;
-  margin-top: auto;
-  font-family: monospace;
-  font-size: 0.85em;
-}
-.log-monitor td, .log-monitor th { padding-left: 1em; }
-.logo { background-image: url("logo.png") !important; background-repeat: no-repeat !important; background-position: center !important; background-size: contain !important; }
