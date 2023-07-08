@@ -328,7 +328,7 @@ def create_override_settings_dropdown(tabname, row): # pylint: disable=unused-ar
     return dropdown
 
 
-def create_ui():
+def create_ui(startup_timer):
     import modules.img2img # pylint: disable=redefined-outer-name
     import modules.txt2img # pylint: disable=redefined-outer-name
     reload_javascript()
@@ -495,9 +495,10 @@ def create_ui():
 
             ui_extra_networks.setup_ui(extra_networks_ui, txt2img_gallery)
 
+    startup_timer.record("ui-txt2img")
+
     modules.scripts.scripts_current = modules.scripts.scripts_img2img
     modules.scripts.scripts_img2img.initialize_scripts(is_img2img=True)
-
     with gr.Blocks(analytics_enabled=False) as img2img_interface:
         img2img_prompt, img2img_prompt_styles, img2img_negative_prompt, submit, img2img_interrogate, img2img_deepbooru, img2img_prompt_style_apply, img2img_save_style, img2img_paste, extra_networks_button, token_counter, token_button, negative_token_counter, negative_token_button = create_toprow(is_img2img=True)
 
@@ -848,16 +849,21 @@ def create_ui():
                 paste_button=img2img_paste, tabname="img2img", source_text_component=img2img_prompt, source_image_component=None,
             ))
 
+    startup_timer.record("ui-img2img")
+
     modules.scripts.scripts_current = None
 
     with gr.Blocks(analytics_enabled=False) as extras_interface:
         ui_postprocessing.create_ui()
+        startup_timer.record("ui-extras")
 
     with gr.Blocks(analytics_enabled=False) as train_interface:
         ui_train.create_ui(txt2img_preview_params = [txt2img_prompt, txt2img_negative_prompt, steps, sampler_index, cfg_scale, seed, width, height])
+        startup_timer.record("ui-train")
 
     with gr.Blocks(analytics_enabled=False) as models_interface:
         ui_models.create_ui()
+        startup_timer.record("ui-models")
 
     def create_setting_component(key, is_quicksettings=False):
         def fun():
@@ -1048,6 +1054,7 @@ def create_ui():
             outputs=[dummy_component]
         )
 
+    startup_timer.record("ui-settings")
 
     interfaces = [
         (txt2img_interface, "txt2img", "txt2img"),
@@ -1060,6 +1067,7 @@ def create_ui():
     interfaces += [(settings_interface, "Settings", "settings")]
     extensions_interface = ui_extensions.create_ui()
     interfaces += [(extensions_interface, "Extensions", "extensions")]
+    startup_timer.record("ui-extensions")
 
     modules.shared.tab_names = []
     for _interface, label, _ifid in interfaces:
@@ -1135,6 +1143,8 @@ def create_ui():
             outputs=[component_dict[k] for k in component_keys],
             queue=False,
         )
+
+    startup_timer.record("ui-defaults")
 
     loadsave.dump_defaults()
     demo.ui_loadsave = loadsave

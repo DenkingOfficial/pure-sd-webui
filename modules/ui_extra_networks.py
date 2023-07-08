@@ -114,7 +114,10 @@ class ExtraNetworksPage:
             shared.log.info(f"Extra network created thumbnails: {self.name} {created}")
             self.missing_thumbs.clear()
 
-    def create_html(self, tabname):
+    def create_html(self, tabname, skip = False):
+        self_name_id = self.name.replace(" ", "_")
+        if skip:
+            return f"<div id='{tabname}_{self_name_id}_subdirs' class='extra-network-subdirs'></div><div id='{tabname}_{self_name_id}_cards' class='extra-network-cards'>Extra network page not ready<br>Click refresh to try again</div>"
         view = shared.opts.extra_networks_default_view
         items_html = ''
         self.metadata = {}
@@ -124,7 +127,9 @@ class ExtraNetworksPage:
             for root, dirs, _files in os.walk(parentdir, followlinks=True):
                 for dirname in dirs:
                     x = os.path.join(root, dirname)
-                    if not os.path.isdir(x):
+                    if shared.opts.diffusers_dir in x:
+                        subdirs[os.path.basename(shared.opts.diffusers_dir)] = 1
+                    if (not os.path.isdir(x)) or ('models--' in x):
                         continue
                     subdir = os.path.abspath(x)[len(parentdir):].replace("\\", "/")
                     while subdir.startswith("/"):
@@ -259,7 +264,7 @@ def pages_in_preferred_order(pages):
     return sorted(pages, key=lambda x: tab_scores[x.name])
 
 
-def create_ui(container, button, tabname):
+def create_ui(container, button, tabname, skip_indexing = False):
     ui = ExtraNetworksUi()
     ui.pages = []
     ui.stored_extra_pages = pages_in_preferred_order(extra_pages.copy())
