@@ -434,7 +434,7 @@ options_templates.update(options_section(('image-processing', "Image Processing"
     "img2img_background_color": OptionInfo("#ffffff", "Image transparent color fill", ui_components.FormColorPicker, {}),
     "inpainting_mask_weight": OptionInfo(1.0, "Inpainting conditioning mask strength", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}),
     "initial_noise_multiplier": OptionInfo(1.0, "Noise multiplier for image processing", gr.Slider, {"minimum": 0.1, "maximum": 1.5, "step": 0.01}),
-    "CLIP_stop_at_last_layers": OptionInfo(1, "Clip skip", gr.Slider, {"minimum": 1, "maximum": 8, "step": 1}),
+    "CLIP_stop_at_last_layers": OptionInfo(1, "Clip skip", gr.Slider, {"minimum": 1, "maximum": 14, "step": 1}),
 }))
 
 
@@ -589,7 +589,7 @@ options_templates.update(options_section(('upscaling', "Upscaling"), {
 options_templates.update(options_section(('extra_networks', "Extra Networks"), {
     "ui_extra_networks_tab_reorder": OptionInfo("Checkpoints, Lora, LyCORIS, Textual Inversion, Hypernetworks", "Extra networks tab order"),
     "extra_networks_card_cover": OptionInfo("inline", "UI position", gr.Radio, lambda: {"choices": ["cover", "inline", "sidebar"]}),
-    "extra_networks_height": OptionInfo(47, "UI height (%)", gr.Slider, {"minimum": 10, "maximum": 100, "step": 1}),
+    "extra_networks_height": OptionInfo(53, "UI height (%)", gr.Slider, {"minimum": 10, "maximum": 100, "step": 1}),
     "extra_networks_sidebar_width": OptionInfo(35, "UI sidebar width (%)", gr.Slider, {"minimum": 10, "maximum": 80, "step": 1}),
     "extra_networks_card_lazy": OptionInfo(True, "UI card preview lazy loading"),
     "extra_networks_card_size": OptionInfo(200, "UI card size (px)", gr.Slider, {"minimum": 20, "maximum": 2000, "step": 1}),
