@@ -536,3 +536,8 @@ div.controlnet_main_options { display: grid; grid-template-columns: 1fr 1fr; gri
 #refresh_tac_refreshTempFiles { display: none; }
 #train_tab { flex-flow: row-reverse; }
 #models_tab { flex-flow: row-reverse; }
+
+/* Workaround for Gradio dropdowns capturing clicks during and after fadeout */
+.gradio-dropdown > label > div > :not(.showOptions) ~ ul.options {
+    pointer-events: none;
+  }
