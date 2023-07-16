@@ -387,7 +387,7 @@ def create_ui(startup_timer = None):
                             tiling = gr.Checkbox(label='Tiling', value=False, elem_id="txt2img_tiling")
                     elif category == "second_pass":
                         with FormGroup(visible=False, elem_id="txt2img_second_pass") as hr_options:
-                            hr_second_pass_steps, latent_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img", False)
+                            hr_second_pass_steps, latent_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img")
                             with FormRow(elem_id="txt2img_hires_fix_row1", variant="compact"):
                                 denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.7, elem_id="txt2img_denoising_strength")
 
