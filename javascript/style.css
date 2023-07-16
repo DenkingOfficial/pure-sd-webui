@@ -387,7 +387,8 @@ div#extras_scale_to_tab div.form{
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(20, 20, 20, 0.95);
+    background-color: rgba(20, 20, 20, 0.75);
+    backdrop-filter: blur(6px);
     user-select: none;
     -webkit-user-select: none;
     flex-direction: row;
@@ -398,6 +399,7 @@ div#extras_scale_to_tab div.form{
 .modalControls span { color: white; font-size: 2em; font-weight: bold; cursor: pointer; filter: grayscale(100%); }
 .modalControls span:hover, .modalControls span:focus { color: var(--highlight-color); filter: none; }
 .lightboxModalPreviewZone { display: flex; width: 100%; height: 100%; }
+.lightboxModalPreviewZone:focus-visible { outline: none; }
 .lightboxModalPreviewZone > img { display: block; margin: auto; width: auto; }
 .lightboxModalPreviewZone > img.modalImageFullscreen{ object-fit: contain;  height: 100%; width: 100%; min-height: 0; background: transparent; }
 
@@ -498,7 +500,7 @@ table.settings-value-table td{
 .extra-networks .second-line { display: flex; width: -webkit-fill-available; gap: 0.2em; }
 .extra-networks .search { flex: 1; }
 .extra-networks .description { flex: 3; }
-.extra-networks .tab-nav > button { margin-right: 0; height: auto; padding: 2px 4px 2px 4px; }
+.extra-networks .tab-nav > button { margin-right: 0; height: 24px; padding: 2px 4px 2px 4px; }
 .extra-networks-tab { padding: 0 !important; }
 .extra-network-subdirs { background: var(--input-background-fill); overflow-x: hidden; overflow-y: auto; min-width: 120px; }
 .extra-networks-page { display: flex }
@@ -539,5 +541,5 @@ div.controlnet_main_options { display: grid; grid-template-columns: 1fr 1fr; gri
 
 /* Workaround for Gradio dropdowns capturing clicks during and after fadeout */
 .gradio-dropdown > label > div > div:first-child:not(.showOptions) ~ ul.options {
-    pointer-events: none;
+  pointer-events: none;
 }

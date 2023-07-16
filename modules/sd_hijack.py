@@ -2,6 +2,7 @@ from types import MethodType
 import torch
 from torch.nn.functional import silu
 import ldm.modules.attention
+import ldm.modules.distributions.distributions
 import ldm.modules.diffusionmodules.model
 import ldm.modules.diffusionmodules.openaimodel
 import ldm.models.diffusion.ddim
@@ -173,26 +174,27 @@ class StableDiffusionModelHijack:
         if m.cond_stage_key == "edit":
             sd_hijack_unet.hijack_ddpm_edit()
 
-        import logging
-        if opts.cuda_compile and opts.cuda_compile_mode == 'ipex':
-            if devices.backend == 'ipex':
-                shared.log.info("Model compile enabled: IPEX Optimize Graph Mode")
-            else:
-                shared.log.warning("Model compile skipped: IPEX Method is for Intel GPU's with OneAPI")
-        elif opts.cuda_compile and opts.cuda_compile_mode != 'none' and shared.backend == shared.Backend.ORIGINAL:
+        if opts.cuda_compile and opts.cuda_compile_mode != 'none' and shared.backend == shared.Backend.ORIGINAL:
             try:
-                import torch._dynamo # pylint: disable=unused-import
-                log_level = logging.WARNING if opts.cuda_compile_verbose else logging.CRITICAL # pylint: disable=protected-access
-                torch._logging.set_logs(dynamo=log_level, aot=log_level, inductor=log_level) # pylint: disable=protected-access
-                torch._dynamo.config.verbose = opts.cuda_compile_verbose # pylint: disable=protected-access
-                torch._dynamo.config.suppress_errors = opts.cuda_compile_errors # pylint: disable=protected-access
-                torch.backends.cudnn.benchmark = True
-                if opts.cuda_compile_mode == 'hidet':
-                    import hidet
-                    hidet.torch.dynamo_config.use_tensor_core(True)
-                    hidet.torch.dynamo_config.search_space(2)
-                m.model = torch.compile(m.model, mode="default", backend=opts.cuda_compile_mode, fullgraph=opts.cuda_compile_fullgraph, dynamic=False)
-                shared.log.info(f"Model compile enabled: {opts.cuda_compile_mode}")
+                import logging
+                shared.log.info(f"Compiling pipeline={m.model.__class__.__name__} mode={opts.cuda_compile_mode}")
+                if opts.cuda_compile_mode == 'ipex':
+                    import intel_extension_for_pytorch as ipex # pylint: disable=import-error, unused-import
+                    m.model.training = False
+                    m.model = ipex.optimize(m.model, dtype=devices.dtype_unet, inplace=True, weights_prepack=False) # pylint: disable=attribute-defined-outside-init
+                else:
+                    import torch._dynamo # pylint: disable=unused-import,redefined-outer-name
+                    log_level = logging.WARNING if opts.cuda_compile_verbose else logging.CRITICAL # pylint: disable=protected-access
+                    torch._logging.set_logs(dynamo=log_level, aot=log_level, inductor=log_level) # pylint: disable=protected-access
+                    torch._dynamo.config.verbose = opts.cuda_compile_verbose # pylint: disable=protected-access
+                    torch._dynamo.config.suppress_errors = opts.cuda_compile_errors # pylint: disable=protected-access
+                    torch.backends.cudnn.benchmark = True
+                    if opts.cuda_compile_mode == 'hidet':
+                        import hidet
+                        hidet.torch.dynamo_config.use_tensor_core(True)
+                        hidet.torch.dynamo_config.search_space(2)
+                    m.model = torch.compile(m.model, mode="default", backend=opts.cuda_compile_mode, fullgraph=opts.cuda_compile_fullgraph, dynamic=False)
+                shared.log.info("Model complilation done.")
             except Exception as err:
                 shared.log.warning(f"Model compile not supported: {err}")
 
@@ -210,6 +212,8 @@ class StableDiffusionModelHijack:
         self.layers = flatten(m)
 
     def undo_hijack(self, m):
+        if not hasattr(m, 'cond_stage_model'):
+            return # not ldm model
         if type(m.cond_stage_model) == xlmr.BertSeriesModelWithTransformation:
             m.cond_stage_model = m.cond_stage_model.wrapped
 
@@ -302,3 +306,7 @@ def register_buffer(self, name, attr):
 
 ldm.models.diffusion.ddim.DDIMSampler.register_buffer = register_buffer
 ldm.models.diffusion.plms.PLMSSampler.register_buffer = register_buffer
+
+# Ensure samping from Guassian for DDPM follows types
+if not devices.backend == 'ipex':
+    ldm.modules.distributions.distributions.DiagonalGaussianDistribution.sample = lambda self: self.mean.to(self.parameters.dtype) + self.std.to(self.parameters.dtype) * torch.randn(self.mean.shape, dtype=self.parameters.dtype).to(device=self.parameters.device)

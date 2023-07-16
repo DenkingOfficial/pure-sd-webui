@@ -289,6 +289,8 @@ def check_python():
 def check_torch():
     if args.quick:
         return
+    if args.skip_torch:
+        log.info('Skipping Torch tests')
     if args.profile:
         pr = cProfile.Profile()
         pr.enable()
@@ -313,11 +315,13 @@ def check_torch():
         torch_command = os.environ.get('TORCH_COMMAND', 'torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/rocm5.4.2')
         xformers_package = os.environ.get('XFORMERS_PACKAGE', 'none')
     elif allow_ipex and (args.use_ipex or shutil.which('sycl-ls') is not None or os.environ.get('ONEAPI_ROOT') is not None or os.path.exists('/opt/intel/oneapi')):
-        args.use_ipex = True
+        args.use_ipex = True # pylint: disable=attribute-defined-outside-init
         log.info('Intel OneAPI Toolkit detected')
         if shutil.which('sycl-ls') is None:
             log.error('Intel OneAPI Toolkit is not activated! Start the WebUI with --use-ipex or activate OneAPI manually')
-        torch_command = os.environ.get('TORCH_COMMAND', 'torch==1.13.0a0 torchvision==0.14.1a0 intel_extension_for_pytorch==1.13.120+xpu -f https://developer.intel.com/ipex-whl-stable-xpu')
+        os.environ.setdefault('NEOReadDebugKeys', '1')
+        os.environ.setdefault('ClDeviceGlobalMemSizeAvailablePercent', '100')
+        torch_command = os.environ.get('TORCH_COMMAND', 'torch==1.13.0a0+git6c9b55e torchvision==0.14.1a0 intel_extension_for_pytorch==1.13.120+xpu -f https://developer.intel.com/ipex-whl-stable-xpu')
     else:
         machine = platform.machine()
         if sys.platform == 'darwin':
@@ -332,8 +336,6 @@ def check_torch():
             torch_command = os.environ.get('TORCH_COMMAND', 'torch torchvision')
     if 'torch' in torch_command and not args.version:
         install(torch_command, 'torch torchvision')
-    if args.skip_torch:
-        log.info('Skipping Torch tests')
     else:
         try:
             import torch
@@ -422,6 +424,7 @@ def install_packages():
     invisiblewatermark_package = os.environ.get('INVISIBLEWATERMARK_PACKAGE', "git+https://github.com/patrickvonplaten/invisible-watermark.git@remove_onnxruntime_depedency")
     install(invisiblewatermark_package, 'invisible-watermark')
     install('onnxruntime==1.15.1', 'onnxruntime', ignore=True)
+    install('pi-heif', 'pi_heif', ignore=True)
     if args.profile:
         print_profile(pr, 'Packages')
 
@@ -788,4 +791,7 @@ def read_options():
     global opts # pylint: disable=global-statement
     if os.path.isfile(args.config):
         with open(args.config, "r", encoding="utf8") as file:
-            opts = json.load(file)
+            try:
+                opts = json.load(file)
+            except Exception as e:
+                log.error(f'Error reading options file: {file} {e}')

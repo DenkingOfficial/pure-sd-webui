@@ -16,12 +16,16 @@ import tomesd
 from transformers import logging as transformers_logging
 import ldm.modules.midas as midas
 from ldm.util import instantiate_from_config
-import diffusers
 from modules import paths, shared, modelloader, devices, script_callbacks, sd_vae, sd_disable_initialization, errors, hashes, sd_models_config
 from modules.sd_hijack_inpainting import do_inpainting_hijack
 from modules.timer import Timer
 from modules.memstats import memory_stats
 from modules.paths_internal import models_path
+
+try:
+    import diffusers
+except Exception as ex:
+    shared.log.error(f'Failed to import diffusers: {ex}')
 
 
 transformers_logging.set_verbosity_error()
@@ -77,7 +81,11 @@ class CheckpointInfo:
             if os.path.isfile(repo[0]['model_info']):
                 file_path = repo[0]['model_info']
                 with open(file_path, "r", encoding="utf-8") as json_file:
-                    self.model_info = json.load(json_file)
+                    try:
+                        self.model_info = json.load(json_file)
+                    except Exception as e:
+                        shared.log.error(f'Error loading model info: {json_file} {e}')
+                        self.model_info = {}
 
         self.shorthash = self.sha256[0:10] if self.sha256 else None
         self.title = self.name if self.shorthash is None else f'{self.name} [{self.shorthash}]'
@@ -194,6 +202,9 @@ def get_closet_checkpoint_match(search_string):
     found = sorted([info for info in checkpoints_list.values() if search_string in info.title], key=lambda x: len(x.title))
     if found:
         return found[0]
+    found = sorted([info for info in checkpoints_list.values() if search_string.split(' ')[0] in info.title], key=lambda x: len(x.title))
+    if found:
+        return found[0]
     return None
 
 
@@ -213,12 +224,12 @@ def model_hash(filename):
 
 
 def select_checkpoint(op='model'):
-    if op == 'model':
-        model_checkpoint = shared.opts.sd_model_checkpoint
-    elif op == 'dict':
+    if op == 'dict':
         model_checkpoint = shared.opts.sd_model_dict
     elif op == 'refiner':
         model_checkpoint = shared.opts.data.get('sd_model_refiner', None)
+    else:
+        model_checkpoint = shared.opts.sd_model_checkpoint
     if model_checkpoint is None or model_checkpoint == 'None':
         return None
     checkpoint_info = get_closet_checkpoint_match(model_checkpoint)
@@ -375,7 +386,10 @@ def load_model_weights(model: torch.nn.Module, checkpoint_info: CheckpointInfo, 
         shared.opts.data["sd_model_checkpoint"] = checkpoint_info.title
     if state_dict is None:
         state_dict = get_checkpoint_state_dict(checkpoint_info, timer)
-    model.load_state_dict(state_dict, strict=False)
+    try:
+        model.load_state_dict(state_dict, strict=False)
+    except Exception as e:
+        shared.log.error(f'Error loading model weights: {checkpoint_info.filename} {e}')
     del state_dict
     timer.record("apply")
     if shared.opts.sd_checkpoint_cache > 0:
@@ -397,7 +411,8 @@ def load_model_weights(model: torch.nn.Module, checkpoint_info: CheckpointInfo, 
         model.first_stage_model = vae
         if depth_model:
             model.depth_model = depth_model
-    devices.dtype_unet = model.model.diffusion_model.dtype
+    # devices.dtype_unet = model.model.diffusion_model.dtype
+    model.model.diffusion_model.to(devices.dtype_unet)
     model.first_stage_model.to(devices.dtype_vae)
     # clean up cache if limit is reached
     while len(checkpoints_loaded) > shared.opts.sd_checkpoint_cache:
@@ -493,7 +508,6 @@ class ModelData:
         return self.sd_model
 
     def set_sd_model(self, v):
-        shared.log.debug(f"Class model: {v}")
         self.sd_model = v
 
     def get_sd_refiner(self):
@@ -531,21 +545,24 @@ class PriorPipeline:
         self.prior.to(*args, **kwargs)
 
     def enable_model_cpu_offload(self, *args, **kwargs):
-        self.prior.enable_model_cpu_offload(*args, **kwargs)
+        if hasattr(self.prior, 'enable_model_cpu_offload'):
+            self.prior.enable_model_cpu_offload(*args, **kwargs)
         self.main.enable_model_cpu_offload(*args, **kwargs)
 
     def enable_sequential_cpu_offload(self, *args, **kwargs):
-        self.prior.enable_sequential_cpu_offload(*args, **kwargs)
+        if hasattr(self.prior, 'enable_sequential_cpu_offload'):
+            self.prior.enable_sequential_cpu_offload(*args, **kwargs)
         self.main.enable_sequential_cpu_offload(*args, **kwargs)
 
     def enable_xformers_memory_efficient_attention(self, *args, **kwargs):
-        self.prior.enable_xformers_memory_efficient_attention(*args, **kwargs)
+        if hasattr(self.prior, 'enable_xformers_memory_efficient_attention'):
+            self.prior.enable_xformers_memory_efficient_attention(*args, **kwargs)
         self.main.enable_xformers_memory_efficient_attention(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
         unclip_outputs = self.prior(prompt=kwargs.get("prompt"), negative_prompt=kwargs.get("negative_prompt"))
 
-        if self.prior.device.type == "cuda" or self.prior.device.type == "xpu":
+        if self.prior.device.type == "cuda" or self.prior.device.type == "xpu" or self.prior.device.type == "mps":
             prior_device = self.prior.device
             self.prior.to("cpu")
             self.main.to(prior_device)
@@ -553,12 +570,20 @@ class PriorPipeline:
         kwargs = {**kwargs, **unclip_outputs}
         result = self.main(*args, **kwargs)
 
-        if self.main.device.type == "cuda" or self.main.device.type == "xpu":
+        if self.main.device.type == "cuda" or self.main.device.type == "xpu" or self.prior.device.type == "mps":
             main_device = self.main.device
             self.main.to("cpu")
             self.prior.to(main_device)
 
         return result
+
+
+def change_backend():
+    shared.log.info(f'Pipeline changed: {shared.backend}')
+    unload_model_weights()
+    checkpoints_loaded.clear()
+    from modules.sd_samplers import list_samplers
+    list_samplers(shared.backend)
 
 
 def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=None, op='model'): # pylint: disable=unused-argument
@@ -666,7 +691,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
                         shared.log.error(f'Diffusers cannot load safetensor model: {checkpoint_info.path} {shared.opts.diffusers_pipeline}')
                         return
                     if sd_model is not None:
-                        shared.log.debug(f'Diffusers pipeline: {type(sd_model)}') # pylint: disable=protected-access
+                        shared.log.debug(f'Diffusers pipeline: {sd_model.__class__.__name__}') # pylint: disable=protected-access
                 except Exception as e:
                     shared.log.error(f'Diffusers failed loading model using pipeline: {checkpoint_info.path} {shared.opts.diffusers_pipeline} {e}')
                     return
@@ -716,7 +741,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
             sd_model.unet.to(memory_format=torch.channels_last)
 
         base_sent_to_cpu=False
-        if (shared.opts.cuda_compile and torch.cuda.is_available()) or devices.backend == 'ipex':
+        if shared.opts.cuda_compile and torch.cuda.is_available():
             if op == 'refiner':
                 gpu_vram = memory_stats().get('gpu', {})
                 free_vram = gpu_vram.get('total', 0) - gpu_vram.get('used', 0)
@@ -726,9 +751,9 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
                     base_sent_to_cpu=False
                 else:
                     if not refiner_enough_vram and not (shared.opts.diffusers_move_base and shared.opts.diffusers_move_refiner):
-                        shared.log.warning(f"Not enough VRAM to use refiner, using RAM as fallback. Free VRAM: {free_vram} GB\n"
-                        + "Enabled 'Move base model to CPU when using refiner' and 'Move refiner model to CPU when not in use'\n"
-                        + "Enable the settings above and apply the settings to suppress this warning.")
+                        shared.log.warning(f"Insufficient GPU memory, using system memory as fallback: free={free_vram} GB")
+                        shared.log.debug('Enabled moving base model to CPU')
+                        shared.log.debug('Enabled moving refiner model to CPU')
                         shared.opts.diffusers_move_base=True
                         shared.opts.diffusers_move_refiner=True
                     shared.log.debug('Moving base model to CPU')
@@ -738,25 +763,22 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
                     base_sent_to_cpu=True
             else:
                 sd_model.to(devices.device)
-
-        if devices.backend == 'ipex':
-            sd_model.unet.training = False
-            if shared.opts.cuda_compile and shared.opts.cuda_compile_mode == 'ipex':
-                shared.log.info("Model compile enabled: IPEX Optimize Graph Mode")
-            sd_model.unet = torch.xpu.optimize(sd_model.unet, dtype=devices.dtype, auto_kernel_selection=True, optimize_lstm=True, # pylint: disable=attribute-defined-outside-init
-            graph_mode=True if shared.opts.cuda_compile and shared.opts.cuda_compile_mode == 'ipex' else False)
-            shared.log.info("Applied IPEX Optimize")
-
-        elif shared.opts.cuda_compile and torch.cuda.is_available():
-            import torch._dynamo # pylint: disable=unused-import,redefined-outer-name
-            log_level = logging.WARNING if shared.opts.cuda_compile_verbose else logging.CRITICAL # pylint: disable=protected-access
-            torch._logging.set_logs(dynamo=log_level, aot=log_level, inductor=log_level) # pylint: disable=protected-access
-            torch._dynamo.config.verbose = shared.opts.cuda_compile_verbose # pylint: disable=protected-access
-            torch._dynamo.config.suppress_errors = shared.opts.cuda_compile_errors # pylint: disable=protected-access
-            sd_model.unet = torch.compile(sd_model.unet, mode=shared.opts.cuda_compile_mode, fullgraph=shared.opts.cuda_compile_fullgraph) # pylint: disable=attribute-defined-outside-init
-            shared.log.info(f"Compiling pipeline={sd_model.__class__.__name__} shape={8 * sd_model.unet.config.sample_size} mode={shared.opts.cuda_compile_mode}")
-            sd_model("dummy prompt")
-            shared.log.info("Complilation done.")
+            try:
+                shared.log.info(f"Compiling pipeline={sd_model.__class__.__name__} shape={8 * sd_model.unet.config.sample_size} mode={shared.opts.cuda_compile_mode}")
+                if shared.opts.cuda_compile_mode == 'ipex':
+                    sd_model.unet.training = False
+                    sd_model.unet = torch.xpu.optimize(sd_model.unet, dtype=devices.dtype_unet, inplace=True, weights_prepack=False) # pylint: disable=attribute-defined-outside-init
+                else:
+                    import torch._dynamo # pylint: disable=unused-import,redefined-outer-name
+                    log_level = logging.WARNING if shared.opts.cuda_compile_verbose else logging.CRITICAL # pylint: disable=protected-access
+                    torch._logging.set_logs(dynamo=log_level, aot=log_level, inductor=log_level) # pylint: disable=protected-access
+                    torch._dynamo.config.verbose = shared.opts.cuda_compile_verbose # pylint: disable=protected-access
+                    torch._dynamo.config.suppress_errors = shared.opts.cuda_compile_errors # pylint: disable=protected-access
+                    sd_model.unet = torch.compile(sd_model.unet, mode=shared.opts.cuda_compile_mode, fullgraph=shared.opts.cuda_compile_fullgraph) # pylint: disable=attribute-defined-outside-init
+                    sd_model("dummy prompt")
+                shared.log.info("Complilation done.")
+            except Exception as err:
+                shared.log.warning(f"Model compile not supported: {err}")
 
         if sd_model is None:
             shared.log.error('Diffuser model not loaded')
@@ -764,6 +786,8 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
         sd_model.sd_checkpoint_info = checkpoint_info # pylint: disable=attribute-defined-outside-init
         sd_model.sd_model_checkpoint = checkpoint_info.filename # pylint: disable=attribute-defined-outside-init
         sd_model.sd_model_hash = checkpoint_info.hash # pylint: disable=attribute-defined-outside-init
+        if hasattr(sd_model, "set_progress_bar_config"):
+            sd_model.set_progress_bar_config(bar_format='Progress {rate_fmt}{postfix} {bar} {percentage:3.0f}% {n_fmt}/{total_fmt} {elapsed} {remaining}', ncols=80, colour='#327fba')
         if op == 'refiner' and shared.opts.diffusers_move_refiner:
             shared.log.debug('Moving refiner model to CPU')
             sd_model.to("cpu")
@@ -789,6 +813,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
     timer.record("load")
     shared.log.info(f"Model loaded in {timer.summary()}")
     devices.torch_gc(force=True)
+    script_callbacks.model_loaded_callback(sd_model)
     shared.log.info(f'Model load finished: {memory_stats()}')
 
 
@@ -923,11 +948,6 @@ def load_model(checkpoint_info=None, already_loaded_state_dict=None, timer=None,
     sd_hijack.model_hijack.hijack(sd_model)
     timer.record("hijack")
     sd_model.eval()
-    if devices.backend == 'ipex':
-        sd_model = torch.xpu.optimize(sd_model, dtype=devices.dtype, auto_kernel_selection=True, optimize_lstm=True,
-        weights_prepack=False if shared.cmd_opts.lowvram or shared.cmd_opts.medvram else True,
-        graph_mode=True if shared.opts.cuda_compile and shared.opts.cuda_compile_mode == 'ipex' else False)
-        shared.log.info("Applied IPEX Optimize")
     if op == 'refiner':
         model_data.sd_refiner = sd_model
     else:
@@ -965,8 +985,8 @@ def reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model')
     if sd_model is None:  # previous model load failed
         current_checkpoint_info = None
     else:
-        current_checkpoint_info = sd_model.sd_checkpoint_info
-        if checkpoint_info is not None and current_checkpoint_info.filename == checkpoint_info.filename:
+        current_checkpoint_info = getattr(sd_model, 'sd_checkpoint_info', None)
+        if current_checkpoint_info is not None and checkpoint_info is not None and current_checkpoint_info.filename == checkpoint_info.filename:
             return
         if shared.cmd_opts.lowvram or shared.cmd_opts.medvram:
             lowvram.send_everything_to_cpu()
@@ -993,6 +1013,7 @@ def reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model')
             shared.opts.data["sd_model_checkpoint"] = next_checkpoint_info.title
             reload_model_weights(reuse_dict=True) # ok we loaded dict now lets redo and load model on top of it
         return model_data.sd_model if op == 'model' or op == 'dict' else model_data.sd_refiner
+
     try:
         load_model_weights(sd_model, checkpoint_info, state_dict, timer)
     except Exception:
