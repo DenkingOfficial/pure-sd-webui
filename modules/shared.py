@@ -898,13 +898,13 @@ def get_version():
             res = subprocess.run('git rev-parse --abbrev-ref HEAD', stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell=True, check=True)
             branch = res.stdout.decode(encoding = 'utf8', errors='ignore') if len(res.stdout) > 0 else ''
             version = {
-                'app': 'sd.next',
+                'app': 'Stable Diffusion WebUI',
                 'updated': updated,
                 'hash': githash,
                 'url': origin.replace('\n', '') + '/tree/' + branch.replace('\n', '')
             }
         except Exception:
-            version = { 'app': 'sd.next' }
+            version = { 'app': 'Stable Diffusion WebUI' }
     return version
 
 

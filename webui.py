@@ -74,8 +74,8 @@ else:
 
 fastapi_args = {
     "version": f'0.0.{git_commit}',
-    "title": "SD.Next",
-    "description": "SD.Next",
+    "title": "Stable Diffusion WebUI",
+    "description": "Stable Diffusion WebUI",
     "docs_url": "/docs" if cmd_opts.docs else None,
     "redocs_url": "/redocs" if cmd_opts.docs else None,
     "swagger_ui_parameters": {

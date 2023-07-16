@@ -53,7 +53,7 @@ function setProgress(res) {
     sec %= 60;
     eta = min > 0 ? `ETA: ${Math.round(min)}m ${Math.round(sec)}s` : `ETA: ${Math.round(sec)}s`;
   }
-  document.title = `SD.Next ${perc}`;
+  document.title = `Stable Diffusion WebUI ${perc}`;
   for (const elId of elements) {
     const el = document.getElementById(elId);
     el.innerText = res
