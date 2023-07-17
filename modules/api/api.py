@@ -579,13 +579,8 @@ class Api:
 
     def shutdown(self):
         shared.log.info('Shutdown request received')
-        # from modules.shared import demo
-        # demo.close()
-        # time.sleep(0.5)
-        # import sys
-        # sys.exit(0)
-        import os
-        os._exit(0)
+        import sys
+        sys.exit(0)
 
     def get_memory(self):
         try:
