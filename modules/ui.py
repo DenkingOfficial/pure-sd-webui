@@ -403,6 +403,7 @@ def create_ui(startup_timer = None):
                                 hr_resize_x = gr.Slider(minimum=0, maximum=4096, step=8, label="Resize width to", value=0, elem_id="txt2img_hr_resize_x")
                                 hr_resize_y = gr.Slider(minimum=0, maximum=4096, step=8, label="Resize height to", value=0, elem_id="txt2img_hr_resize_y")
 
+                            # TODO: make it shown only if refiner is set
                             with FormRow():
                                 hr_refiner = FormHTML(value="Refiner", elem_id="txtimg_hr_finalres", interactive=False)
                             with FormRow(elem_id="txt2img_refiner_row1", variant="compact"):
@@ -476,6 +477,7 @@ def create_ui(startup_timer = None):
             def enable_hr_change(visible: bool):
                 return {"visible": visible, "__type__": "update"}, f'Refiner{": disabled" if modules.shared.sd_refiner is None else ""}'
 
+            # TODO: add func to make refiner settings visible if set
             second_pass.change(enable_hr_change, inputs=[second_pass], outputs=[hr_options, hr_refiner], show_progress = False)
 
             txt2img_paste_fields = [
@@ -668,6 +670,7 @@ def create_ui(startup_timer = None):
                     elif category == "cfg":
                         with FormGroup():
                             # TODO: make it more beautiful too
+                            # TODO: make it shown only if refiner is set
                             cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0, elem_id="img2img_cfg_scale")
                             denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id="img2img_denoising_strength")
                             diffusers_cfg_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Diffusers CFG parameters (I guess)</h3>', elem_id="imgimg_diffusers_cfg_sep", interactive=False)
