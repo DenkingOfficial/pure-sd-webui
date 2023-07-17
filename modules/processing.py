@@ -147,7 +147,7 @@ class StableDiffusionProcessing:
         self.all_negative_prompts = None
         self.all_seeds = None
         self.all_subseeds = None
-        self.clip_skip = opts.CLIP_stop_at_last_layers
+        self.clip_skip = shared.opts.CLIP_stop_at_last_layers
         self.iteration = 0
         self.is_hr_pass = False
         self.enable_hr = None
