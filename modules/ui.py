@@ -386,6 +386,7 @@ def create_ui(startup_timer = None):
                             tiling = gr.Checkbox(label='Tiling', value=False, elem_id="txt2img_tiling")
                             second_pass = gr.Checkbox(label='Second pass', value=False, elem_id="txt2img_enable_hr")
                     elif category == "second_pass":
+                        # TODO: make it more beautiful
                         with FormGroup(visible=False, elem_id="txt2img_second_pass") as hr_options:
                             with FormRow(elem_id="txt2img_hires_fix_row1", variant="compact"):
                                 second_pass_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Second pass parameters</h3>', elem_id="txtimg_second_pass_sep", interactive=False)
@@ -630,7 +631,7 @@ def create_ui(startup_timer = None):
                                                 height = gr.Slider(minimum=64, maximum=4096, step=64, label="Height", value=512, elem_id="img2img_height")
                                             with gr.Column(elem_id="img2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):
                                                 res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="img2img_res_switch_btn")
-                                                detect_image_size_btn = ToolButton(value=detect_image_size_symbol, elem_id="img2img_detect_image_size_btn") # this potentially can break ui
+                                                detect_image_size_btn = ToolButton(value=detect_image_size_symbol, elem_id="img2img_detect_image_size_btn")
 
                                     with gr.Tab(label="Resize by") as tab_scale_by:
                                         scale_by = gr.Slider(minimum=0.05, maximum=4.0, step=0.05, label="Scale", value=1.0, elem_id="img2img_scale")
@@ -666,7 +667,8 @@ def create_ui(startup_timer = None):
 
                     elif category == "cfg":
                         with FormGroup():
-                            cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0, elem_id="img2img_cfg_scale") # potentially break
+                            # TODO: make it more beautiful too
+                            cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0, elem_id="img2img_cfg_scale")
                             denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id="img2img_denoising_strength")
                             diffusers_cfg_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Diffusers CFG parameters (I guess)</h3>', elem_id="imgimg_diffusers_cfg_sep", interactive=False)
                             diffusers_guidance_rescale = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Guidance rescale', value=0.7, elem_id="img2img_image_cfg_rescale")

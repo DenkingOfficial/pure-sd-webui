@@ -72,7 +72,7 @@ ui_reorder_categories = [
     "seed",
     "batch",
     "checkboxes",
-    "second_pass", #this potentially breaks ui consistency
+    "second_pass",
     "override_settings",
     "scripts",
 ]
