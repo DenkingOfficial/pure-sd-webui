@@ -398,7 +398,7 @@ def create_ui(startup_timer = None):
                                 second_pass_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Second pass parameters</h3>', elem_id="txtimg_second_pass_sep", interactive=False)
                             hr_second_pass_steps, latent_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img", False)
                             with FormRow(elem_id="txt2img_hires_fix_row2", variant="compact"):
-                                denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.3, elem_id="txt2img_denoising_strength")
+                                denoising_strength = gr.Slider(minimum=0.05, maximum=1.0, step=0.01, label='Denoising strength', value=0.3, elem_id="txt2img_denoising_strength")
 
                             with FormRow():
                                 hr_final_resolution = FormHTML(value="", elem_id="txtimg_hr_finalres", label="Upscaled resolution", interactive=False)
@@ -678,7 +678,7 @@ def create_ui(startup_timer = None):
                             # TODO: make it more beautiful too
                             # TODO: make it shown only if refiner is set
                             cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0, elem_id="img2img_cfg_scale")
-                            denoising_strength = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id="img2img_denoising_strength")
+                            denoising_strength = gr.Slider(minimum=0.05, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id="img2img_denoising_strength")
                             diffusers_cfg_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Diffusers CFG parameters (I guess)</h3>', elem_id="imgimg_diffusers_cfg_sep", interactive=False)
                             diffusers_guidance_rescale = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Guidance rescale', value=0.7, elem_id="img2img_image_cfg_rescale")
                             image_cfg_scale = gr.Slider(minimum=0, maximum=30.0, step=0.05, label='Image CFG Scale', value=1.5, elem_id="img2img_image_cfg_scale")
