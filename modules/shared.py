@@ -12,7 +12,7 @@ import requests
 import fasteners
 from modules import errors, ui_components, shared_items, cmd_args
 from modules.paths_internal import models_path, script_path, data_path, sd_configs_path, sd_default_config, sd_model_file, default_sd_model_file, extensions_dir, extensions_builtin_dir # pylint: disable=W0611
-from modules.dml import directml_hijack_init, directml_override_opts
+from modules.dml import directml_do_hijack, directml_override_opts
 import modules.interrogate
 import modules.memmon
 import modules.styles
@@ -801,7 +801,7 @@ parallel_processing_allowed = not cmd_opts.lowvram
 mem_mon = modules.memmon.MemUsageMonitor("MemMon", device, opts)
 mem_mon.start()
 if devices.backend == "directml":
-    directml_hijack_init()
+    directml_do_hijack()
     directml_override_opts()
 
 
@@ -890,8 +890,8 @@ def restart_server(restart=True):
         demo.server.close()
         demo.fns = []
         # os._exit(0)
-    except Exception:
-        pass
+    except Exception as e:
+        log.error(f'Server shutdown error: {e}')
     if restart:
         log.info('Server will restart')
 

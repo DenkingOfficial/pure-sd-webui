@@ -9,6 +9,16 @@ from modules.lora_diffusers import lora_state, unload_diffusers_lora
 from modules.processing import StableDiffusionProcessing
 
 
+def encode_prompt(encoder, prompt):
+    cfg = encoder.config
+    # TODO implement similar hijack for diffusers text encoder but following diffusers pipeline.encode_prompt concepts
+    # from modules import sd_hijack_clip
+    # model.text_encoder = sd_hijack_clip.FrozenCLIPEmbedderWithCustomWords(model.text_encoder, None)
+    shared.log.debug(f'Diffuser encoder: {encoder.__class__.__name__} dict={getattr(cfg, "vocab_size", None)} layers={getattr(cfg, "num_hidden_layers", None)} tokens={getattr(cfg, "max_position_embeddings", None)}')
+    embeds = prompt
+    return embeds
+
+
 def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_prompts):
     results = []
 
@@ -18,8 +28,9 @@ def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_pro
         shared.state.current_latent = latents
 
     def vae_decode(latents, model, output_type='np'):
-        if hasattr(model, 'vae'):
-            shared.log.debug(f'Diffusers VAE decode: name={model.vae.config.get("_name_or_path", "default")} upcast={model.vae.config.get("force_upcast", None)}')
+        if hasattr(model, 'vae') and torch.is_tensor(latents):
+            shared.log.debug(f'Diffusers VAE decode: name={model.vae.config.get("_name_or_path", "default")} dtype={model.vae.dtype} upcast={model.vae.config.get("force_upcast", None)}')
+            latents.to(model.vae.device)
             decoded = model.vae.decode(latents / model.vae.config.scaling_factor, return_dict=False)[0]
             imgs = model.image_processor.postprocess(decoded, output_type=output_type)
             return imgs
@@ -35,9 +46,17 @@ def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_pro
         generator_device = 'cpu' if shared.opts.diffusers_generator_device == "cpu" else shared.device
         generator = [torch.Generator(generator_device).manual_seed(s) for s in seeds]
         if 'prompt' in possible:
-            args['prompt'] = prompt
+            if hasattr(model, 'text_encoder') and 'prompt_embeds' in possible:
+                # args['prompt_embeds'] = encode_prompt(model, prompt)
+                args['prompt'] = prompt
+            else:
+                args['prompt'] = prompt
         if 'negative_prompt' in possible:
-            args['negative_prompt'] = negative_prompt
+            if hasattr(model, 'text_encoder') and 'negative_prompt_embeds' in possible:
+                # args['negative_prompt_embeds'] = encode_prompt(model, negative_prompt)
+                args['negative_prompt'] = negative_prompt
+            else:
+                args['negative_prompt'] = negative_prompt
         if 'num_inference_steps' in possible:
             args['num_inference_steps'] = p.steps
         if 'guidance_scale' in possible:
@@ -85,17 +104,25 @@ def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_pro
         cross_attention_kwargs['scale'] = lora_state['multiplier']
     task_specific_kwargs={}
     if sd_models.get_diffusers_task(shared.sd_model) == sd_models.DiffusersTaskType.TEXT_2_IMAGE:
+        p.ops.append('txt2img')
         task_specific_kwargs = {"height": p.height, "width": p.width}
     elif sd_models.get_diffusers_task(shared.sd_model) == sd_models.DiffusersTaskType.IMAGE_2_IMAGE:
+        p.ops.append('img2img')
         task_specific_kwargs = {"image": p.init_images, "strength": p.denoising_strength}
     elif sd_models.get_diffusers_task(shared.sd_model) == sd_models.DiffusersTaskType.INPAINTING:
+        p.ops.append('inpaint')
         task_specific_kwargs = {"image": p.init_images, "mask_image": p.mask, "strength": p.denoising_strength}
 
     # TODO diffusers use transformers for prompt parsing
     # from modules.prompt_parser import parse_prompt_attention
     # parsed_prompt = [parse_prompt_attention(prompt) for prompt in prompts]
 
-    shared.sd_model.to(devices.device)
+    if shared.state.interrupted or shared.state.skipped:
+        return results
+
+    if shared.opts.diffusers_move_base:
+        shared.sd_model.to(devices.device)
+
     pipe_args = set_pipeline_args(
         model=shared.sd_model,
         prompt=prompts,
@@ -128,8 +155,9 @@ def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_pro
                     images.save_image(decoded[i], path=p.outpath_samples, basename="", seed=seeds[i], prompt=prompts[i], extension=shared.opts.samples_format, info=info, p=p, suffix="-before-refiner")
 
         if shared.opts.diffusers_move_base:
-            shared.log.debug('Moving base model to CPU')
+            shared.log.debug('Diffusers: Moving base model to CPU')
             shared.sd_model.to('cpu')
+            devices.torch_gc()
 
         if (not hasattr(shared.sd_refiner.scheduler, 'name')) or (shared.sd_refiner.scheduler.name != p.latent_sampler) and (p.sampler_name != 'Default'):
             sampler = sd_samplers.all_samplers_map.get(p.latent_sampler, None)
@@ -140,14 +168,14 @@ def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_pro
         if shared.state.interrupted or shared.state.skipped:
             return results
 
-        shared.sd_refiner.to(devices.device)
-        devices.torch_gc()
-
+        if shared.opts.diffusers_move_refiner:
+            shared.sd_refiner.to(devices.device)
+        p.ops.append('refine')
         for i in range(len(output.images)):
             pipe_args = set_pipeline_args(
                 model=shared.sd_refiner,
-                prompt=[p.refiner_prompt] if len(p.refiner_prompt) > 0 else prompts,
-                negative_prompt=[p.refiner_negative] if len(p.refiner_negative) > 0 else negative_prompts,
+                prompt=[p.refiner_prompt] if len(p.refiner_prompt) > 0 else prompts[i],
+                negative_prompt=[p.refiner_negative] if len(p.refiner_negative) > 0 else negative_prompts[i],
                 num_inference_steps=p.hr_second_pass_steps,
                 eta=shared.opts.eta_ddim,
                 strength=p.denoising_strength,
@@ -157,17 +185,15 @@ def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_pro
                 denoising_start=p.refiner_denoise_start,
                 denoising_end=p.refiner_denoise_end,
                 image=output.images[i],
-                output_type='latent' if hasattr(shared.sd_model, 'vae') else 'np',
+                output_type='latent' if hasattr(shared.sd_refiner, 'vae') else 'np',
             )
-            output = shared.sd_refiner(**pipe_args) # pylint: disable=not-callable
-            if shared.state.interrupted or shared.state.skipped:
-                return results
-
-            output.images = vae_decode(output.images, shared.sd_model)
-            results.append(output.images[0])
+            refiner_output = shared.sd_refiner(**pipe_args) # pylint: disable=not-callable
+            if not shared.state.interrupted and not shared.state.skipped:
+                refiner_images = vae_decode(refiner_output.images, shared.sd_refiner)
+                results.append(refiner_images[0])
 
         if shared.opts.diffusers_move_refiner:
-            shared.log.debug('Moving refiner model to CPU')
+            shared.log.debug('Diffusers: Moving refiner model to CPU')
             shared.sd_refiner.to('cpu')
     else:
         results = output.images
