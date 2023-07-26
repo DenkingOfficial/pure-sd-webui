@@ -148,8 +148,8 @@ def interrogate_deepbooru(image):
     return gr.update() if prompt is None else prompt
 
 
-def create_seed_inputs(tab, visible):
-    with FormGroup(visible=visible, elem_id=f"{tab}_seed_group") as seed_group:
+def create_seed_inputs(tab):
+    with FormGroup(visible=True, elem_id=f"{tab}_seed_group") as seed_group:
         with FormRow(elem_id=f"{tab}_seed_row", variant="compact"):
             seed = gr.Number(label='Seed', value=-1, elem_id=f"{tab}_seed")
             seed.style(container=False)
