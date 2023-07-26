@@ -363,6 +363,10 @@ def create_ui(startup_timer = None):
             with gr.Column(variant='compact', elem_id="txt2img_settings"):
                 modules.sd_samplers.set_samplers()
                 steps, sampler_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img", True)
+                with FormRow(elem_classes="checkboxes-row", variant="compact"):
+                    restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="txt2img_restore_faces")
+                    tiling = gr.Checkbox(label='Tiling', value=False, elem_id="txt2img_tiling")
+                    show_second_pass = gr.Checkbox(label='Second pass', value=False, elem_id="txt2img_show_second_pass")
 
                 with FormRow():
                     with gr.Column(elem_id="txt2img_column_size", scale=4):
@@ -374,18 +378,15 @@ def create_ui(startup_timer = None):
                         with FormRow(elem_id="txt2img_row_batch"):
                             batch_count = gr.Slider(minimum=1, step=1, label='Batch count', value=1, elem_id="txt2img_batch_count")
                             batch_size = gr.Slider(minimum=1, maximum=32, step=1, label='Batch size', value=1, elem_id="txt2img_batch_size")
-    
-                seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('txt2img')
-                
+
                 with FormRow():
                     cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0, elem_id="txt2img_cfg_scale")
-                with FormRow(elem_classes="checkboxes-row", variant="compact"):
-                    restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="txt2img_restore_faces")
-                    tiling = gr.Checkbox(label='Tiling', value=False, elem_id="txt2img_tiling")
-                    show_second_pass = gr.Checkbox(label='Second pass', value=False, elem_id="txt2img_show_second_pass")
+
+                seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('txt2img')
 
                 with FormGroup(visible=show_second_pass.value, elem_id="txt2img_second_pass") as second_pass:
                     # TODO: make it more beautiful
+                    second_pass_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Second pass parameters</h3>', elem_id="txtimg_second_pass_sep", interactive=False)
                     hr_second_pass_steps, latent_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img", False)
                     with FormRow(elem_id="txt2img_hires_fix_row1", variant="compact"):
                         denoising_strength = gr.Slider(minimum=0.05, maximum=1.0, step=0.01, label='Denoising strength', value=0.3, elem_id="txt2img_denoising_strength")
@@ -410,11 +411,11 @@ def create_ui(startup_timer = None):
                     with FormRow(elem_id="txt2img_refiner_row3", variant="compact"):
                         refiner_negative = gr.Textbox(value='', label='Negative prompt')
 
-                    with FormRow(elem_id="txt2img_override_settings_row") as row:
-                        override_settings = create_override_settings_dropdown('txt2img', row)
+                with FormRow(elem_id="txt2img_override_settings_row") as row:
+                    override_settings = create_override_settings_dropdown('txt2img', row)
 
-                    with FormGroup(elem_id="txt2img_script_container"):
-                        custom_inputs = modules.scripts.scripts_txt2img.setup_ui()
+                with FormGroup(elem_id="txt2img_script_container"):
+                    custom_inputs = modules.scripts.scripts_txt2img.setup_ui()
 
             hr_resolution_preview_inputs = [show_second_pass, width, height, hr_scale, hr_resize_x, hr_resize_y]
             for preview_input in hr_resolution_preview_inputs:
@@ -591,7 +592,7 @@ def create_ui(startup_timer = None):
 
                 modules.sd_samplers.set_samplers()
                 steps, sampler_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers_for_img2img, "img2img", True)
-                
+
                 with FormGroup(visible=True, elem_id=f"{tab}_resize_group") as resize_group:
                     with FormRow():
                         resize_mode = gr.Radio(label="Resize mode", elem_id="resize_mode", choices=["Resize fixed", "Crop and resize", "Resize and fill", "Resize using Latent upscale"], type="index", value="Resize and fill")
@@ -642,11 +643,11 @@ def create_ui(startup_timer = None):
                     batch_count = gr.Slider(minimum=1, step=1, label='Batch count', value=1, elem_id="img2img_batch_count")
                     batch_size = gr.Slider(minimum=1, maximum=8, step=1, label='Batch size', value=1, elem_id="img2img_batch_size")
 
-                seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('img2img')
-                
                 with FormGroup():
                     cfg_scale = gr.Slider(minimum=1.0, maximum=30.0, step=0.5, label='CFG Scale', value=7.0, elem_id="img2img_cfg_scale")
                     denoising_strength = gr.Slider(minimum=0.05, maximum=1.0, step=0.01, label='Denoising strength', value=0.75, elem_id="img2img_denoising_strength")
+
+                seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('img2img')
 
                 with FormRow(elem_classes="checkboxes-row", variant="compact"):
                     restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="img2img_restore_faces")
@@ -654,12 +655,12 @@ def create_ui(startup_timer = None):
                     show_advanced = gr.Checkbox(label='Advanced', value=False, elem_id="txt2img_show_advanced")
 
                 with FormGroup(visible=show_advanced.value, elem_id=f"{tab}_advanced_group") as advanced_group:
-                    with FormRow():
-                        image_cfg_scale = gr.Slider(minimum=0, maximum=30.0, step=0.05, label='Image CFG Scale', value=1.5, elem_id="img2img_image_cfg_scale")
-                        diffusers_guidance_rescale = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Guidance rescale', value=0.7, elem_id="img2img_image_cfg_rescale")
-                        refiner_denoise_start = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Denoise start', value=0.0, elem_id="img2img_refiner_denoise_start")
-                        refiner_denoise_end = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Denoise end', value=1.0, elem_id="img2img_refiner_denoise_end")
-                
+                    diffusers_cfg_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Advanced parameters</h3>', elem_id="imgimg_diffusers_cfg_sep", interactive=False)
+                    image_cfg_scale = gr.Slider(minimum=0, maximum=30.0, step=0.05, label='Image CFG Scale', value=1.5, elem_id="img2img_image_cfg_scale")
+                    diffusers_guidance_rescale = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Guidance rescale', value=0.7, elem_id="img2img_image_cfg_rescale")
+                    refiner_denoise_start = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Denoise start', value=0.0, elem_id="img2img_refiner_denoise_start")
+                    refiner_denoise_end = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Denoise end', value=1.0, elem_id="img2img_refiner_denoise_end")
+
                 with FormRow(elem_id="img2img_override_settings_row") as row:
                     override_settings = create_override_settings_dropdown('img2img', row)
 
