@@ -13,7 +13,7 @@ from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call, wrap_grad
 from modules import sd_hijack, sd_models, script_callbacks, ui_extensions, deepbooru, extra_networks, ui_common, ui_postprocessing, ui_loadsave, ui_train, ui_models
 from modules.ui_components import FormRow, FormColumn, FormGroup, ToolButton, FormHTML # pylint: disable=unused-import
 from modules.paths import script_path, data_path
-from modules.shared import opts, cmd_opts
+from modules.shared import opts, cmd_opts, readfile
 from modules import prompt_parser
 import modules.codeformer_model
 import modules.generation_parameters_copypaste as parameters_copypaste
@@ -44,6 +44,7 @@ def gr_show(visible=True):
 
 sample_img2img = "assets/stable-samples/img2img/sketch-mountains-input.jpg"
 sample_img2img = sample_img2img if os.path.exists(sample_img2img) else None
+paste_function = None
 
 # Using constants for these since the variation selector isn't visible.
 # Important that they exactly match script.js for tooltip to work.
@@ -92,6 +93,7 @@ def calc_resolution_hires(enable, width, height, hr_scale, hr_resize_x, hr_resiz
     if modules.shared.backend == modules.shared.Backend.DIFFUSERS:
         return "Hires resize: disabled"
     p = processing.StableDiffusionProcessingTxt2Img(width=width, height=height, enable_hr=True, hr_scale=hr_scale, hr_resize_x=hr_resize_x, hr_resize_y=hr_resize_y)
+    p.init_hr()
     with devices.autocast():
         p.init([""], [0], [0])
     return f"Hires resize: from <span class='resolution'>{p.width}x{p.height}</span> to <span class='resolution'>{p.hr_resize_x or p.hr_upscale_to_x}x{p.hr_resize_y or p.hr_upscale_to_y}</span>"
@@ -384,13 +386,13 @@ def create_ui(startup_timer = None):
 
                 seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox = create_seed_inputs('txt2img')
 
-                with FormGroup(visible=show_second_pass.value, elem_id="txt2img_second_pass") as second_pass:
+                with FormGroup(visible=show_second_pass.value, elem_id="txt2img_second_pass") as second_pass_group:
                     # TODO: make it more beautiful
                     second_pass_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Second pass parameters</h3>', elem_id="txtimg_second_pass_sep", interactive=False)
                     hr_second_pass_steps, latent_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img", False)
                     with FormRow(elem_id="txt2img_hires_fix_row1", variant="compact"):
                         denoising_strength = gr.Slider(minimum=0.05, maximum=1.0, step=0.01, label='Denoising strength', value=0.3, elem_id="txt2img_denoising_strength")
-                    with FormRow():
+                    with FormRow(elem_id="txt2img_hires_finalres", variant="compact"):
                         hr_final_resolution = FormHTML(value="", elem_id="txtimg_hr_finalres", label="Upscaled resolution", interactive=False)
                     with FormRow(elem_id="txt2img_hires_fix_row2", variant="compact"):
                         hr_upscaler = gr.Dropdown(label="Upscaler", elem_id="txt2img_hr_upscaler", choices=[*modules.shared.latent_upscale_modes, *[x.name for x in modules.shared.sd_upscalers]], value=modules.shared.latent_upscale_default_mode)
@@ -469,27 +471,28 @@ def create_ui(startup_timer = None):
             # TODO: add func to make refiner settings visible if set
             res_switch_btn.click(lambda w, h: (h, w), inputs=[width, height], outputs=[width, height], show_progress=False)
             txt_prompt_img.change(fn=modules.images.image_data, inputs=[txt_prompt_img], outputs=[txt2img_prompt, txt_prompt_img])
-            show_second_pass.change(enable_hr_change, inputs=[show_second_pass], outputs=[second_pass, hr_refiner], show_progress = False)
+            show_second_pass.change(enable_hr_change, inputs=[show_second_pass], outputs=[second_pass_group, hr_refiner], show_progress=False)
 
             txt2img_paste_fields = [
                 (txt2img_prompt, "Prompt"),
                 (txt2img_negative_prompt, "Negative prompt"),
                 (steps, "Steps"),
-                (sampler_index, "Sampler"),
-                (latent_index, "Latent sampler"),
-                (restore_faces, "Face restoration"),
-                (cfg_scale, "CFG scale"),
                 (seed, "Seed"),
+                (sampler_index, "Sampler"),
+                (cfg_scale, "CFG scale"),
                 (width, "Size-1"),
                 (height, "Size-2"),
-                (batch_size, "Batch size"),
                 (subseed, "Variation seed"),
                 (subseed_strength, "Variation strength"),
+                (latent_index, "Latent sampler"),
+                (denoising_strength, "Denoising strength"),
+                (refiner_denoise_start, "Denoising strength"),
+                (refiner_denoise_end, "Denoising end"),
+                (restore_faces, "Face restoration"),
+                (batch_size, "Batch size"),
+                (batch_count, "Batch count"),
                 (seed_resize_from_w, "Seed resize from-1"),
                 (seed_resize_from_h, "Seed resize from-2"),
-                (denoising_strength, "Denoising strength"),
-                (second_pass, lambda d: "Denoising strength" in d),
-                (second_pass, lambda d: gr.Row.update(visible="Denoising strength" in d)),
                 (hr_scale, "Hires upscale"),
                 (hr_upscaler, "Hires upscaler"),
                 (hr_second_pass_steps, "Hires steps"),
@@ -652,7 +655,7 @@ def create_ui(startup_timer = None):
                 with FormRow(elem_classes="checkboxes-row", variant="compact"):
                     restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="img2img_restore_faces")
                     tiling = gr.Checkbox(label='Tiling', value=False, elem_id="img2img_tiling")
-                    show_advanced = gr.Checkbox(label='Advanced', value=False, elem_id="txt2img_show_advanced")
+                    show_advanced = gr.Checkbox(label='Advanced', value=False, elem_id="img2img_show_advanced")
 
                 with FormGroup(visible=show_advanced.value, elem_id=f"{tab}_advanced_group") as advanced_group:
                     diffusers_cfg_sep = FormHTML(value='<hr style="height:2px;border-width:0;background-color:#374151;margin-top:0.5em;margin-bottom:0em;"><h3 style="margin-top:0.5em">Advanced parameters</h3>', elem_id="imgimg_diffusers_cfg_sep", interactive=False)
@@ -816,19 +819,28 @@ def create_ui(startup_timer = None):
                 (img2img_prompt, "Prompt"),
                 (img2img_negative_prompt, "Negative prompt"),
                 (steps, "Steps"),
-                (sampler_index, "Sampler"),
-                (restore_faces, "Face restoration"),
-                (cfg_scale, "CFG scale"),
-                (image_cfg_scale, "Image CFG scale"),
                 (seed, "Seed"),
+                (sampler_index, "Sampler"),
+                (cfg_scale, "CFG scale"),
                 (width, "Size-1"),
                 (height, "Size-2"),
-                (batch_size, "Batch size"),
                 (subseed, "Variation seed"),
                 (subseed_strength, "Variation strength"),
+                (latent_index, "Latent sampler"),
+                (denoising_strength, "Denoising strength"),
+                (refiner_denoise_start, "Denoising strength"),
+                (refiner_denoise_end, "Denoising end"),
+                (restore_faces, "Face restoration"),
+                (batch_size, "Batch size"),
+                (batch_count, "Batch count"),
                 (seed_resize_from_w, "Seed resize from-1"),
                 (seed_resize_from_h, "Seed resize from-2"),
-                (denoising_strength, "Denoising strength"),
+                (hr_scale, "Hires upscale"),
+                (hr_upscaler, "Hires upscaler"),
+                (hr_second_pass_steps, "Hires steps"),
+                (hr_resize_x, "Hires resize-1"),
+                (hr_resize_y, "Hires resize-2"),
+                (image_cfg_scale, "Image CFG scale"),
                 (mask_blur, "Mask blur"),
                 *modules.scripts.scripts_img2img.infotext_fields
             ]
