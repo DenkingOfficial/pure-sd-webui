@@ -661,11 +661,6 @@ def create_ui(startup_timer = None):
                     diffusers_guidance_rescale = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Guidance rescale', value=0.7, elem_id="img2img_image_cfg_rescale")
                     refiner_start = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Refiner denoising start', value=0.0, elem_id="img2img_refiner_start")
 
-                with FormRow(elem_id="img2img_override_settings_row") as row:
-                    override_settings = create_override_settings_dropdown('img2img', row)
-
-                with FormGroup(elem_id="img2img_script_container"):
-                    custom_inputs = modules.scripts.scripts_img2img.setup_ui()
 
                 with FormGroup(elem_id="inpaint_controls", visible=False) as inpaint_controls:
                     with FormRow():
@@ -682,7 +677,7 @@ def create_ui(startup_timer = None):
                         with gr.Column():
                             inpaint_full_res = gr.Radio(label="Inpaint area", choices=["Whole picture", "Only masked"], type="index", value="Whole picture", elem_id="img2img_inpaint_full_res")
 
-                        with gr.Column(scale=4):
+                        with gr.Column(): # Not sure about this one
                             inpaint_full_res_padding = gr.Slider(label='Only masked padding, pixels', minimum=0, maximum=256, step=4, value=32, elem_id="img2img_inpaint_full_res_padding")
 
                     def select_img2img_tab(tab):
@@ -694,6 +689,12 @@ def create_ui(startup_timer = None):
                             inputs=[],
                             outputs=[inpaint_controls, mask_alpha],
                         )
+
+                with FormRow(elem_id="img2img_override_settings_row") as row:
+                    override_settings = create_override_settings_dropdown('img2img', row)
+
+                with FormGroup(elem_id="img2img_script_container"):
+                    custom_inputs = modules.scripts.scripts_img2img.setup_ui()
 
             img2img_gallery, generation_info, html_info, _html_info_formatted, html_log = ui_common.create_output_panel("img2img", opts.outdir_img2img_samples)
 
