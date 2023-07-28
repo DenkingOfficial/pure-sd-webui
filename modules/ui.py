@@ -592,12 +592,31 @@ def create_ui(startup_timer = None):
                     button.click(fn=lambda: None, _js=f"switch_to_{name.replace(' ', '_')}", inputs=[], outputs=[])
 
                 modules.sd_samplers.set_samplers()
-                steps, sampler_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers_for_img2img, "img2img", True)
 
                 with FormGroup(visible=True, elem_id=f"{tab}_resize_group") as resize_group:
                     with FormRow():
                         resize_mode = gr.Radio(label="Resize mode", elem_id="resize_mode", choices=["Resize fixed", "Crop and resize", "Resize and fill", "Resize using Latent upscale"], type="index", value="Resize and fill")
 
+                    with FormGroup(elem_id="inpaint_controls", visible=False) as inpaint_controls:
+                        with FormRow():
+                            mask_blur = gr.Slider(label='Mask blur', minimum=0, maximum=64, step=1, value=4, elem_id="img2img_mask_blur")
+                            mask_alpha = gr.Slider(label="Mask transparency", visible=False, elem_id="img2img_mask_alpha")
+
+                        with FormRow():
+                            inpainting_mask_invert = gr.Radio(label='Mask mode', choices=['Inpaint masked', 'Inpaint not masked'], value='Inpaint masked', type="index", elem_id="img2img_mask_mode")
+
+                        with FormRow():
+                            inpainting_fill = gr.Radio(label='Masked content', choices=['fill', 'original', 'latent noise', 'latent nothing'], value='original', type="index", elem_id="img2img_inpainting_fill")
+
+                        with FormRow():
+                            with gr.Column():
+                                inpaint_full_res = gr.Radio(label="Inpaint area", choices=["Whole picture", "Only masked"], type="index", value="Whole picture", elem_id="img2img_inpaint_full_res")
+
+                            with gr.Column(scale=4): # Not sure about this one
+                                inpaint_full_res_padding = gr.Slider(label='Only masked padding, pixels', minimum=0, maximum=256, step=4, value=32, elem_id="img2img_inpaint_full_res_padding")
+
+                    steps, sampler_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers_for_img2img, "img2img", True)
+                    
                     with FormRow():
                         with gr.Column(elem_id="img2img_column_size", scale=4):
                             selected_scale_tab = gr.State(value=0) # pylint: disable=abstract-class-instantiated
@@ -662,23 +681,6 @@ def create_ui(startup_timer = None):
                     refiner_start = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label='Refiner denoising start', value=0.0, elem_id="img2img_refiner_start")
 
 
-                with FormGroup(elem_id="inpaint_controls", visible=False) as inpaint_controls:
-                    with FormRow():
-                        mask_blur = gr.Slider(label='Mask blur', minimum=0, maximum=64, step=1, value=4, elem_id="img2img_mask_blur")
-                        mask_alpha = gr.Slider(label="Mask transparency", visible=False, elem_id="img2img_mask_alpha")
-
-                    with FormRow():
-                        inpainting_mask_invert = gr.Radio(label='Mask mode', choices=['Inpaint masked', 'Inpaint not masked'], value='Inpaint masked', type="index", elem_id="img2img_mask_mode")
-
-                    with FormRow():
-                        inpainting_fill = gr.Radio(label='Masked content', choices=['fill', 'original', 'latent noise', 'latent nothing'], value='original', type="index", elem_id="img2img_inpainting_fill")
-
-                    with FormRow():
-                        with gr.Column():
-                            inpaint_full_res = gr.Radio(label="Inpaint area", choices=["Whole picture", "Only masked"], type="index", value="Whole picture", elem_id="img2img_inpaint_full_res")
-
-                        with gr.Column(): # Not sure about this one
-                            inpaint_full_res_padding = gr.Slider(label='Only masked padding, pixels', minimum=0, maximum=256, step=4, value=32, elem_id="img2img_inpaint_full_res_padding")
 
                     def select_img2img_tab(tab):
                         return gr.update(visible=tab in [2, 3, 4]), gr.update(visible=tab == 3)
