@@ -183,10 +183,17 @@ def load_vae_diffusers(_model, vae_file=None, vae_source="from unknown source"):
     }
     if devices.dtype_vae == torch.float16:
         diffusers_load_config['variant'] = 'fp16'
+
+    if shared.opts.diffusers_vae_upcast != 'default':
+        diffusers_load_config['force_upcast'] = True if shared.opts.diffusers_vae_upcast == 'true' else False
+
     shared.log.debug(f'Diffusers VAE load config: {diffusers_load_config}')
     try:
         import diffusers
         if os.path.isfile(vae_file):
+            # load_config passed to from_single_file doesn't apply
+            # from_single_file by default downloads VAE1.5 config
+            shared.log.warning("Using SDXL VAE loaded from singular file will result in low contrast images.")
             vae = diffusers.AutoencoderKL.from_single_file(vae_file)
             vae = vae.to(devices.dtype_vae)
         else:
@@ -227,7 +234,7 @@ def reload_vae_weights(sd_model=None, vae_file=unspecified):
         return
     if shared.cmd_opts.lowvram or shared.cmd_opts.medvram:
         lowvram.send_everything_to_cpu()
-    else:
+    elif shared.backend == shared.Backend.ORIGINAL or not shared.opts.diffusers_seq_cpu_offload:
         sd_model.to(devices.cpu)
 
     if shared.backend == shared.Backend.ORIGINAL:
@@ -238,7 +245,7 @@ def reload_vae_weights(sd_model=None, vae_file=unspecified):
         sd_hijack.model_hijack.hijack(sd_model)
         script_callbacks.model_loaded_callback(sd_model)
 
-    if not shared.cmd_opts.lowvram and not shared.cmd_opts.medvram:
+    if not shared.cmd_opts.lowvram and not shared.cmd_opts.medvram and (shared.backend == shared.Backend.ORIGINAL or not shared.opts.diffusers_seq_cpu_offload):
         sd_model.to(devices.device)
     shared.log.info(f"VAE weights loaded: {vae_file}")
     return sd_model
