@@ -172,6 +172,10 @@ class PNGInfoResponse(BaseModel):
     info: str = Field(title="Image info", description="A string with the parameters used to generate the image")
     items: dict = Field(title="Items", description="An object containing all the info the image had")
 
+class LogRequest(BaseModel):
+    lines: int = Field(default=100, title="Lines", description="How many lines to return")
+    clear: bool = Field(default=False, title="Clear", description="Should the log be cleared after returning the lines?")
+
 class ProgressRequest(BaseModel):
     skip_current_image: bool = Field(default=False, title="Skip current image", description="Skip current image serialization")
 
@@ -227,6 +231,10 @@ class SamplerItem(BaseModel):
     name: str = Field(title="Name")
     aliases: List[str] = Field(title="Aliases")
     options: Dict[str, str] = Field(title="Options")
+
+class SDVaeItem(BaseModel):
+    model_name: str = Field(title="Model Name")
+    filename: str = Field(title="Filename")
 
 class UpscalerItem(BaseModel):
     name: str = Field(title="Name")
