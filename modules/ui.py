@@ -369,6 +369,7 @@ def create_ui(startup_timer = None):
                 steps, sampler_index = create_sampler_and_steps_selection(modules.sd_samplers.samplers, "txt2img", True)
                 with FormRow(elem_classes="checkboxes-row", variant="compact"):
                     restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="txt2img_restore_faces")
+                    quality = gr.Checkbox(label='Decode quality', value=True, elem_id="txt2img_quality")
                     tiling = gr.Checkbox(label='Tiling', value=False, elem_id="txt2img_tiling")
                     show_second_pass = gr.Checkbox(label='Second pass', value=False, elem_id="txt2img_show_second_pass")
 
@@ -453,6 +454,7 @@ def create_ui(startup_timer = None):
                     show_second_pass, denoising_strength,
                     hr_scale, hr_upscaler, hr_second_pass_steps, hr_resize_x, hr_resize_y,
                     refiner_start, refiner_prompt, refiner_negative,
+                    quality,
                     override_settings,
                 ] + custom_inputs,
                 outputs=[

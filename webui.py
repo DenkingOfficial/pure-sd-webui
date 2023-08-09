@@ -104,6 +104,9 @@ def initialize():
     log.debug('Entering initialize')
     check_rollback_vae()
 
+    modules.sd_samplers.list_samplers()
+    startup_timer.record("samplers")
+
     modules.sd_vae.refresh_vae_list()
     startup_timer.record("vae")
 
