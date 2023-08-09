@@ -390,7 +390,7 @@ def check_torch():
                 log.warning(f'{x} package is installed, but unused')
     except Exception as e:
         log.debug(f'Cannot install xformers package: {e}')
-    if opts.get('cuda_compile_mode', '') == 'hidet':
+    if opts.get('cuda_compile_backend', '') == 'hidet':
         install('hidet', 'hidet')
     if args.profile:
         print_profile(pr, 'Torch')
