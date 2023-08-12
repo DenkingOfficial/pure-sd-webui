@@ -202,7 +202,10 @@ def process_diffusers(p: StableDiffusionProcessing, seeds, prompts, negative_pro
         return results
 
     if shared.sd_refiner is None or not p.enable_hr:
-        output.images = vae_decode(output.images, shared.sd_model) if p.full_quality else taesd_vae_decode(output.images, shared.sd_model)
+        if shared.opts.diffusers_taesd_vae_output:
+            output.images = taesd_vae_decode(output.images, shared.sd_model)
+        else:
+            output.images = vae_decode(output.images, shared.sd_model)
 
     if lora_state['active']:
         unload_diffusers_lora()

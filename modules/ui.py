@@ -370,7 +370,6 @@ def create_ui(startup_timer = None):
                 with FormRow(elem_classes="checkboxes-row", variant="compact"):
                     restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="txt2img_restore_faces")
                     tiling = gr.Checkbox(label='Tiling', value=False, elem_id="txt2img_tiling")
-                    full_quality = gr.Checkbox(label='Full quality', value=True, elem_id="txt2img_full_quality")
                     show_second_pass = gr.Checkbox(label='Second pass', value=False, elem_id="txt2img_show_second_pass")
 
                 with FormRow():
@@ -444,7 +443,7 @@ def create_ui(startup_timer = None):
                     txt2img_prompt_styles,
                     steps,
                     sampler_index, latent_index,
-                    restore_faces, tiling, full_quality,
+                    restore_faces, tiling,
                     batch_count, batch_size,
                     cfg_scale, image_cfg_scale,
                     diffusers_guidance_rescale,
@@ -489,7 +488,6 @@ def create_ui(startup_timer = None):
                 (latent_index, "Latent sampler"),
                 (denoising_strength, "Denoising strength"),
                 (refiner_start, "Refiner denoising start"),
-                (full_quality, "Full quality"),
                 (restore_faces, "Face restoration"),
                 (batch_size, "Batch size"),
                 (batch_count, "Batch count"),
@@ -677,7 +675,6 @@ def create_ui(startup_timer = None):
                 with FormRow(elem_classes="checkboxes-row", variant="compact"):
                     restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="img2img_restore_faces")
                     tiling = gr.Checkbox(label='Tiling', value=False, elem_id="img2img_tiling")
-                    full_quality = gr.Checkbox(label='Full quality', value=True, elem_id="img2img_full_quality")
                     show_advanced = gr.Checkbox(label='Advanced', value=False, elem_id="img2img_show_advanced")
 
                 with FormGroup(visible=show_advanced.value, elem_id=f"{tab}_advanced_group") as advanced_group:
@@ -738,7 +735,7 @@ def create_ui(startup_timer = None):
                     sampler_index, latent_index,
                     mask_blur, mask_alpha,
                     inpainting_fill,
-                    restore_faces, tiling, full_quality,
+                    restore_faces, tiling,
                     batch_count, batch_size,
                     cfg_scale, image_cfg_scale,
                     diffusers_guidance_rescale,
