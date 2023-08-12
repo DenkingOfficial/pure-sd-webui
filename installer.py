@@ -388,7 +388,7 @@ def check_torch():
     try:
         if 'xformers' in xformers_package:
             install(f'--no-deps {xformers_package}', ignore=True)
-        else:
+        elif not args.experimental:
             x = pkg_resources.working_set.by_key.get('xformers', None)
             if x is not None:
                 log.warning(f'{x} package is installed, but unused')
