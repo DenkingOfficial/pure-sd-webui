@@ -94,7 +94,7 @@ function setupImageForLightbox(image) {
   image.dataset.modded = 'true';
   image.style.cursor = 'pointer';
   image.style.userSelect = 'none';
-}// TODO: fix right click;
+}
 
 function modalZoomToggle(event) {
   const modalImage = gradioApp().getElementById('modalImage');

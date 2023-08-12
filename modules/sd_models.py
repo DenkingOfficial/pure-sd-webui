@@ -136,12 +136,9 @@ def list_models():
     checkpoints_list.clear()
     checkpoint_aliases.clear()
     ext_filter=[".safetensors"] if shared.opts.sd_disable_ckpt else [".ckpt", ".safetensors"]
-    model_list = []
-    if shared.backend == shared.Backend.ORIGINAL or shared.opts.diffusers_allow_safetensors:
-        model_list += modelloader.load_models(model_path=model_path, model_url=None, command_path=shared.opts.ckpt_dir, ext_filter=ext_filter, download_name=None, ext_blacklist=[".vae.ckpt", ".vae.safetensors"])
+    model_list = modelloader.load_models(model_path=model_path, model_url=None, command_path=shared.opts.ckpt_dir, ext_filter=ext_filter, download_name=None, ext_blacklist=[".vae.ckpt", ".vae.safetensors"])
     if shared.backend == shared.Backend.DIFFUSERS:
         model_list += modelloader.load_diffusers_models(model_path=os.path.join(models_path, 'Diffusers'), command_path=shared.opts.diffusers_dir)
-
     for filename in sorted(model_list, key=str.lower):
         checkpoint_info = CheckpointInfo(filename)
         if checkpoint_info.name is not None:
@@ -522,6 +519,7 @@ class ModelData:
 
 model_data = ModelData()
 
+
 def change_backend():
     shared.log.info(f'Pipeline changed: {shared.backend}')
     unload_model_weights()
@@ -534,6 +532,8 @@ def change_backend():
 
 
 def detect_pipeline(f: str, op: str = 'model'):
+    if not f.endswith('.safetensors'):
+        return None, None
     guess = shared.opts.diffusers_pipeline
     if guess == 'Autodetect':
         try:
@@ -585,7 +585,7 @@ def detect_pipeline(f: str, op: str = 'model'):
         pipeline = diffusers.ShapEImg2ImgPipeline
     else:
         shared.log.error(f'Diffusers unknown pipeline: {guess}')
-        pipeline = None
+        pipeline = None, None
     return pipeline, guess
 
 
@@ -626,7 +626,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
     sd_model = None
 
     try:
-        if shared.cmd_opts.ckpt is not None and model_data.initial: # initial load\
+        if shared.cmd_opts.ckpt is not None and model_data.initial: # initial load
             ckpt_basename = os.path.basename(shared.cmd_opts.ckpt)
             model_name = modelloader.find_diffuser(ckpt_basename)
             if model_name is not None:
@@ -659,7 +659,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
             shared.log.info(f'Loading diffuser {op}: {checkpoint_info.filename}')
             if not os.path.isfile(checkpoint_info.path):
                 try:
-                    shared.log.debug(f'Diffusers load {op} config: {diffusers_load_config}')
+                    # shared.log.debug(f'Diffusers load {op} config: {diffusers_load_config}')
                     sd_model = diffusers.DiffusionPipeline.from_pretrained(checkpoint_info.path, **diffusers_load_config)
                 except Exception as e:
                     shared.log.error(f'Diffusers {op} failed loading model: {checkpoint_info.path} {e}')
@@ -728,6 +728,8 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
             else:
                 sd_model.disable_attention_slicing()
         if hasattr(sd_model, "vae"):
+            if vae is not None:
+                sd_model.vae = vae
             if shared.opts.diffusers_vae_upcast != 'default':
                 if shared.opts.diffusers_vae_upcast == 'true':
                     sd_model.vae.config["force_upcast"] = True
@@ -735,7 +737,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
                 else:
                     sd_model.vae.config["force_upcast"] = False
                     sd_model.vae.config.force_upcast = False
-            shared.log.debug(f'Diffusers {op} VAE: name={sd_model.vae.config.get("_name_or_path", "default")} upcast={sd_model.vae.config.get("force_upcast", None)}')
+            shared.log.debug(f'Diffusers {op} VAE: name={sd_vae.loaded_vae_file} upcast={sd_model.vae.config.get("force_upcast", None)}')
         if shared.opts.cross_attention_optimization == "xFormers" and hasattr(sd_model, 'enable_xformers_memory_efficient_attention'):
             sd_model.enable_xformers_memory_efficient_attention()
         if shared.opts.opt_channelslast:
@@ -798,8 +800,7 @@ def load_diffuser(checkpoint_info=None, already_loaded_state_dict=None, timer=No
         if op == 'refiner' and shared.opts.diffusers_move_refiner and not sd_model.has_accelerate:
             shared.log.debug('Moving refiner model to CPU')
             sd_model.to(devices.cpu)
-        elif not sd_model.has_accelerate:
-            # In offload modes, accelerate will move models around.
+        elif not sd_model.has_accelerate: # In offload modes, accelerate will move models around
             sd_model.to(devices.device)
         if op == 'refiner' and base_sent_to_cpu:
             shared.log.debug('Moving base model back to GPU')
@@ -842,7 +843,6 @@ def set_diffuser_pipe(pipe, new_pipe_type):
         new_pipe = diffusers.AutoPipelineForImage2Image.from_pipe(pipe)
     elif new_pipe_type == DiffusersTaskType.INPAINTING:
         new_pipe = diffusers.AutoPipelineForInpainting.from_pipe(pipe)
-
     if pipe.__class__ == new_pipe.__class__:
         return
 
@@ -1028,24 +1028,38 @@ def reload_model_weights(sd_model=None, info=None, reuse_dict=False, op='model')
     shared.log.info(f"Weights loaded in {timer.summary()}")
 
 
+def disable_offload(sd_model):
+    from accelerate.hooks import remove_hook_from_module
+    if not sd_model.has_accelerate:
+        return
+    for _name, model in sd_model.components.items():
+        if not isinstance(model, torch.nn.Module):
+            continue
+        remove_hook_from_module(model, recurse=True)
+
+
 def unload_model_weights(op='model'):
     from modules import sd_hijack
     if op == 'model' or op == 'dict':
         if model_data.sd_model:
-            if not model_data.sd_model.has_accelerate:
-                model_data.sd_model.to(devices.cpu)
             if shared.backend == shared.Backend.ORIGINAL:
+                model_data.sd_model.to(devices.cpu)
                 sd_hijack.model_hijack.undo_hijack(model_data.sd_model)
+            else:
+                disable_offload(model_data.sd_model)
+                model_data.sd_model.to('meta')
             model_data.sd_model = None
-            shared.log.debug(f'Weights unloaded {op}: {memory_stats()}')
+            shared.log.debug(f'Unload weights {op}: {memory_stats()}')
     else:
         if model_data.sd_refiner:
-            if not model_data.sd_refiner.has_accelerate:
-                model_data.sd_refiner.to(devices.cpu)
             if shared.backend == shared.Backend.ORIGINAL:
+                model_data.sd_model.to(devices.cpu)
                 sd_hijack.model_hijack.undo_hijack(model_data.sd_refiner)
+            else:
+                disable_offload(model_data.sd_model)
+                model_data.sd_refiner.to('meta')
             model_data.sd_refiner = None
-            shared.log.debug(f'Weights unloaded {op}: {memory_stats()}')
+            shared.log.debug(f'Unload weights {op}: {memory_stats()}')
     devices.torch_gc(force=True)
 
 

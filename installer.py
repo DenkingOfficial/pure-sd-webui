@@ -82,7 +82,7 @@ def setup_logging():
     }))
     logging.basicConfig(level=logging.ERROR, format='%(asctime)s | %(name)s | %(levelname)s | %(module)s | %(message)s', handlers=[logging.NullHandler()]) # redirect default logger to null
     pretty_install(console=console)
-    traceback_install(console=console, extra_lines=1, width=console.width, word_wrap=False, indent_guides=False, suppress=[])
+    traceback_install(console=console, extra_lines=1, max_frames=10, width=console.width, word_wrap=False, indent_guides=False, suppress=[])
     while log.hasHandlers() and len(log.handlers) > 0:
         log.removeHandler(log.handlers[0])
 
@@ -432,8 +432,17 @@ def install_packages():
     install(invisiblewatermark_package, 'invisible-watermark')
     install('onnxruntime==1.15.1', 'onnxruntime', ignore=True)
     install('pi-heif', 'pi_heif', ignore=True)
-    tensorflow_package = os.environ.get('TENSORFLOW_PACKAGE', 'tensorflow==2.12.0')
+    install('git+https://github.com/damian0815/compel', 'compel', ignore=True)
+    tensorflow_package = os.environ.get('TENSORFLOW_PACKAGE', 'tensorflow==2.13.0')
     install(tensorflow_package, 'tensorflow', ignore=True)
+    bitsandbytes_package = os.environ.get('BITSANDBYTES_PACKAGE', None)
+    if bitsandbytes_package is not None:
+        install(bitsandbytes_package, 'bitsandbytes', ignore=True)
+    elif not args.experimental:
+        bitsandbytes_package = pkg_resources.working_set.by_key.get('bitsandbytes', None)
+        if bitsandbytes_package is not None:
+            log.warning(f'Not used, uninstalling: {bitsandbytes_package}')
+            pip('uninstall bitsandbytes --yes --quiet', ignore=True, quiet=True)
     if args.profile:
         print_profile(pr, 'Packages')
 

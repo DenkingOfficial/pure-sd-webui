@@ -326,9 +326,9 @@ def create_refresh_button(refresh_component, refresh_method, refreshed_args, ele
 
 
 def create_sampler_and_steps_selection(choices, tabname, primary: bool = True):
-    with FormRow(elem_id=f"sampler_selection_{tabname}"):
-        sampler_index = gr.Dropdown(label='Sampling method' if primary else 'Secondary sampler', elem_id=f"{tabname}_sampling{'_alt' if not primary else ''}", choices=[x.name for x in choices], value='Default', type="index") # what is "Default", lmao?
-        steps = gr.Slider(minimum=1, maximum=150, step=1, elem_id=f"{tabname}_steps", label="Sampling steps", value=20)
+    with FormRow(elem_id=f"sampler_selection_{tabname}{'_alt' if not primary else ''}"):
+        sampler_index = gr.Dropdown(label='Sampling method' if primary else 'Secondary sampler', elem_id=f"{tabname}_sampling{'_alt' if not primary else ''}", choices=[x.name for x in choices], value='Default', type="index")
+        steps = gr.Slider(minimum=1, maximum=150, step=1, label="Sampling steps" if primary else 'Secondary steps', elem_id=f"{tabname}_steps{'_alt' if not primary else ''}", value=20)
     return steps, sampler_index
 
 
