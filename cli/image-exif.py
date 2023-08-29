@@ -1,3 +1,5 @@
+#!/bin/env python
+
 import os
 import io
 import re

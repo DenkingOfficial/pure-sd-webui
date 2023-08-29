@@ -53,6 +53,7 @@ def get_optimal_device():
 
 def get_device_for(task):
     if task in shared.cmd_opts.use_cpu:
+        shared.log.debug(f'Forcing CPU for task: {task}')
         return cpu
     return get_optimal_device()
 
@@ -72,8 +73,7 @@ def torch_gc(force=False):
         if backend == "directml":
             practical_used = round(100 * torch.cuda.memory_allocated() / (1 << 30) / gpu.get('total', 1))
             shared.log.info(f'Practical GPU memory utilization: {practical_used}%')
-
-    if shared.opts.disable_gc and not force:
+    if not force:
         return
     collected = gc.collect()
     if cuda_ok:

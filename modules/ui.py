@@ -88,12 +88,12 @@ def add_style(name: str, prompt: str, negative_prompt: str):
     return [gr.Dropdown.update(visible=True, choices=list(modules.shared.prompt_styles.styles)) for _ in range(2)]
 
 
-def calc_resolution_hires(enable, width, height, hr_scale, hr_resize_x, hr_resize_y):
+def calc_resolution_hires(enable, width, height, hr_scale, hr_resize_x, hr_resize_y, hr_upscaler):
     from modules import processing, devices
     if not enable:
         return ""
-    if modules.shared.backend == modules.shared.Backend.DIFFUSERS:
-        return "Hires resize: disabled"
+    if hr_upscaler == "None":
+        return "Hires resize: None"
     p = processing.StableDiffusionProcessingTxt2Img(width=width, height=height, enable_hr=True, hr_scale=hr_scale, hr_resize_x=hr_resize_x, hr_resize_y=hr_resize_y)
     p.init_hr()
     with devices.autocast():
@@ -105,9 +105,7 @@ def resize_from_to_html(width, height, scale_by):
     target_width = int(width * scale_by)
     target_height = int(height * scale_by)
     if not target_width or not target_height:
-        return "no image selected"
-    if modules.shared.backend == modules.shared.Backend.DIFFUSERS:
-        return "Hires resize: disabled"
+        return "Hires resize: no image selected"
     return f"Hires resize: from <span class='resolution'>{width}x{height}</span> to <span class='resolution'>{target_width}x{target_height}</span>"
 
 
@@ -232,13 +230,17 @@ def update_token_counter(text, steps):
     elif modules.shared.backend == modules.shared.Backend.DIFFUSERS:
         if modules.shared.sd_model is not None and hasattr(modules.shared.sd_model, 'tokenizer'):
             tokenizer = modules.shared.sd_model.tokenizer
-            has_bos_token = tokenizer.bos_token_id is not None
-            has_eos_token = tokenizer.eos_token_id is not None
-            ids = [modules.shared.sd_model.tokenizer(prompt) for prompt in prompts]
-            if len(ids) > 0 and hasattr(ids[0], 'input_ids'):
-                ids = [x.input_ids for x in ids]
-            token_count = max([len(x) for x in ids]) - int(has_bos_token) - int(has_eos_token)
-            max_length = tokenizer.model_max_length - int(has_bos_token) - int(has_eos_token)
+            if tokenizer is None:
+                token_count = 0
+                max_length = 75
+            else:
+                has_bos_token = tokenizer.bos_token_id is not None
+                has_eos_token = tokenizer.eos_token_id is not None
+                ids = [modules.shared.sd_model.tokenizer(prompt) for prompt in prompts]
+                if len(ids) > 0 and hasattr(ids[0], 'input_ids'):
+                    ids = [x.input_ids for x in ids]
+                token_count = max([len(x) for x in ids]) - int(has_bos_token) - int(has_eos_token)
+                max_length = tokenizer.model_max_length - int(has_bos_token) - int(has_eos_token)
         else:
             token_count = 0
             max_length = 75
@@ -352,6 +354,7 @@ def create_ui(startup_timer = None):
         startup_timer = timer.Timer()
     reload_javascript()
     parameters_copypaste.reset()
+    ui_defaults = readfile(cmd_opts.ui_config)
 
     import modules.txt2img # pylint: disable=redefined-outer-name
     modules.scripts.scripts_current = modules.scripts.scripts_txt2img
@@ -371,6 +374,7 @@ def create_ui(startup_timer = None):
                     restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="txt2img_restore_faces")
                     tiling = gr.Checkbox(label='Tiling', value=False, elem_id="txt2img_tiling")
                     show_second_pass = gr.Checkbox(label='Second pass', value=False, elem_id="txt2img_show_second_pass")
+                    full_quality = gr.Checkbox(label='Full quality', value=True, elem_id="txt2img_full_quality")
 
                 with FormRow():
                     with gr.Column(elem_id="txt2img_column_size", scale=4):
@@ -420,7 +424,7 @@ def create_ui(startup_timer = None):
                 with FormGroup(elem_id="txt2img_script_container"):
                     custom_inputs = modules.scripts.scripts_txt2img.setup_ui()
 
-            hr_resolution_preview_inputs = [show_second_pass, width, height, hr_scale, hr_resize_x, hr_resize_y]
+            hr_resolution_preview_inputs = [show_second_pass, width, height, hr_scale, hr_resize_x, hr_resize_y, hr_upscaler]
             for preview_input in hr_resolution_preview_inputs:
                 preview_input.change(
                     fn=calc_resolution_hires,
@@ -443,7 +447,7 @@ def create_ui(startup_timer = None):
                     txt2img_prompt_styles,
                     steps,
                     sampler_index, latent_index,
-                    restore_faces, tiling,
+                    full_quality, restore_faces, tiling,
                     batch_count, batch_size,
                     cfg_scale, image_cfg_scale,
                     diffusers_guidance_rescale,
@@ -467,7 +471,7 @@ def create_ui(startup_timer = None):
             submit.click(**txt2img_args)
 
             def enable_hr_change(visible: bool):
-                return {"visible": visible, "__type__": "update"}, f'Refiner{": disabled" if modules.shared.sd_refiner is None else ""}'
+                return {"visible": visible, "__type__": "update"}, f'Refiner: {"disabled" if modules.shared.opts.sd_model_refiner == "None" else "enabled"}'
 
             # TODO: add func to make refiner settings visible if set
             res_switch_btn.click(lambda w, h: (h, w), inputs=[width, height], outputs=[width, height], show_progress=False)
@@ -488,6 +492,7 @@ def create_ui(startup_timer = None):
                 (latent_index, "Latent sampler"),
                 (denoising_strength, "Denoising strength"),
                 (refiner_start, "Refiner denoising start"),
+                (full_quality, "Full quality"),
                 (restore_faces, "Face restoration"),
                 (batch_size, "Batch size"),
                 (batch_count, "Batch count"),
@@ -499,6 +504,11 @@ def create_ui(startup_timer = None):
                 (hr_second_pass_steps, "Secondary steps"),
                 (hr_resize_x, "Hires resize-1"),
                 (hr_resize_y, "Hires resize-2"),
+                (diffusers_guidance_rescale, "CFG rescale"),
+                (image_cfg_scale, "Refiner CFG scale"),
+                (tiling, "Tiling"),
+                (refiner_prompt, "Prompt2"),
+                (refiner_negative, "Negative2"),
                 *modules.scripts.scripts_txt2img.infotext_fields
             ]
             parameters_copypaste.add_paste_fields("txt2img", None, txt2img_paste_fields, override_settings)
@@ -675,6 +685,7 @@ def create_ui(startup_timer = None):
                 with FormRow(elem_classes="checkboxes-row", variant="compact"):
                     restore_faces = gr.Checkbox(label='Restore faces', value=False, visible=len(modules.shared.face_restorers) > 1, elem_id="img2img_restore_faces")
                     tiling = gr.Checkbox(label='Tiling', value=False, elem_id="img2img_tiling")
+                    full_quality = gr.Checkbox(label='Full quality', value=True, elem_id="img2img_full_quality")
                     show_advanced = gr.Checkbox(label='Advanced', value=False, elem_id="img2img_show_advanced")
 
                 with FormGroup(visible=show_advanced.value, elem_id=f"{tab}_advanced_group") as advanced_group:
@@ -735,7 +746,7 @@ def create_ui(startup_timer = None):
                     sampler_index, latent_index,
                     mask_blur, mask_alpha,
                     inpainting_fill,
-                    restore_faces, tiling,
+                    full_quality, restore_faces, tiling,
                     batch_count, batch_size,
                     cfg_scale, image_cfg_scale,
                     diffusers_guidance_rescale,
@@ -799,8 +810,6 @@ def create_ui(startup_timer = None):
                 button.click(
                     fn=add_style,
                     _js="ask_for_style_name",
-                    # Have to pass empty dummy component here, because the JavaScript and Python function have to accept
-                    # the same number of parameters, but we only know the style-name after the JavaScript prompt
                     inputs=[dummy_component, prompt, negative_prompt],
                     outputs=[txt2img_prompt_styles, img2img_prompt_styles],
                 )
@@ -817,7 +826,6 @@ def create_ui(startup_timer = None):
             negative_token_button.click(fn=wrap_queued_call(update_token_counter), inputs=[img2img_negative_prompt, steps], outputs=[negative_token_counter])
 
             ui_extra_networks.setup_ui(extra_networks_ui_img2img, img2img_gallery)
-
             img2img_paste_fields = [
                 (img2img_prompt, "Prompt"),
                 (img2img_negative_prompt, "Negative prompt"),
@@ -832,6 +840,7 @@ def create_ui(startup_timer = None):
                 (latent_index, "Latent sampler"),
                 (denoising_strength, "Denoising strength"),
                 (refiner_start, "Refiner denoising start"),
+                (full_quality, "Full quality"),
                 (restore_faces, "Face restoration"),
                 (batch_size, "Batch size"),
                 (batch_count, "Batch count"),
@@ -843,7 +852,11 @@ def create_ui(startup_timer = None):
                 (hr_second_pass_steps, "Secondary steps"),
                 (hr_resize_x, "Hires resize-1"),
                 (hr_resize_y, "Hires resize-2"),
+                (diffusers_guidance_rescale, "CFG rescale"),
                 (image_cfg_scale, "Image CFG scale"),
+                (tiling, "Tiling"),
+                (refiner_prompt, "Prompt2"),
+                (refiner_negative, "Negative2"),
                 (mask_blur, "Mask blur"),
                 *modules.scripts.scripts_img2img.infotext_fields
             ]
@@ -891,11 +904,7 @@ def create_ui(startup_timer = None):
         if not is_quicksettings:
             dirtyable_setting = gr.Group(elem_classes="dirtyable", visible=(args or {}).get("visible", True))
             dirtyable_setting.__enter__()
-            dirty_indicator = gr.Button(
-                "",
-                elem_classes="modification-indicator",
-                elem_id="modification_indicator_" + key
-            )
+            dirty_indicator = gr.Button("", elem_classes="modification-indicator", elem_id="modification_indicator_" + key)
 
         if info.refresh is not None:
             if is_quicksettings:
@@ -924,12 +933,7 @@ def create_ui(startup_timer = None):
             return [getattr(opts, _key) for _key in keys_to_reset]
 
         elements_to_reset = [component_dict[_key] for _key in keys_to_reset]
-        indicator = gr.Button(
-            "",
-            elem_classes="modification-indicator",
-            elem_id="modification_indicator_" + key,
-            **kwargs
-        )
+        indicator = gr.Button("", elem_classes="modification-indicator", elem_id="modification_indicator_" + key, **kwargs)
         indicator.click(fn=get_opt_values, outputs=elements_to_reset, show_progress=False)
         return indicator
 
@@ -952,6 +956,16 @@ def create_ui(startup_timer = None):
                 changed.append(key)
         if cmd_opts.use_directml:
             directml_override_opts()
+        if cmd_opts.use_openvino:
+            if not modules.shared.opts.cuda_compile:
+                modules.shared.log.warning("OpenVINO: Enabling Torch Compile")
+                modules.shared.opts.cuda_compile = True
+            if modules.shared.opts.cuda_compile_backend != "openvino_fx":
+                modules.shared.log.warning("OpenVINO: Setting Torch Compiler backend to OpenVINO FX")
+                modules.shared.opts.cuda_compile_backend = "openvino_fx"
+            if modules.shared.opts.sd_backend != "diffusers":
+                modules.shared.log.warning("OpenVINO: Setting backend to Diffusers")
+                modules.shared.opts.sd_backend = "diffusers"
         try:
             opts.save(modules.shared.config_filename)
             log.info(f'Settings changed: {len(changed)} {changed}')
@@ -1041,31 +1055,10 @@ def create_ui(startup_timer = None):
         def reload_sd_weights():
             modules.sd_models.reload_model_weights()
 
-        unload_sd_model.click(
-            fn=unload_sd_weights,
-            inputs=[],
-            outputs=[]
-        )
-
-        reload_sd_model.click(
-            fn=reload_sd_weights,
-            inputs=[],
-            outputs=[]
-        )
-
-        request_notifications.click(
-            fn=lambda: None,
-            inputs=[],
-            outputs=[],
-            _js='function(){}'
-        )
-
-        preview_theme.click(
-            fn=None,
-            _js='preview_theme',
-            inputs=[dummy_component],
-            outputs=[dummy_component]
-        )
+        unload_sd_model.click(fn=unload_sd_weights, inputs=[], outputs=[])
+        reload_sd_model.click(fn=reload_sd_weights, inputs=[], outputs=[])
+        request_notifications.click(fn=lambda: None, inputs=[], outputs=[], _js='function(){}')
+        preview_theme.click(fn=None, _js='preview_theme', inputs=[dummy_component], outputs=[dummy_component])
 
     startup_timer.record("ui-settings")
 
@@ -1122,7 +1115,6 @@ def create_ui(startup_timer = None):
         for _i, k, _item in quicksettings_list:
             component = component_dict[k]
             info = opts.data_labels[k]
-
             change_handler = component.release if hasattr(component, 'release') else component.change
             change_handler(
                 fn=lambda value, k=k: run_settings_single(value, key=k),
