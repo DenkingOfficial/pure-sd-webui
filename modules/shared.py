@@ -45,7 +45,7 @@ pipelines = [
     'Stable Diffusion', 'Stable Diffusion XL', 'Kandinsky V1', 'Kandinsky V2', 'DeepFloyd IF', 'Shap-E',
     'Stable Diffusion Img2Img', 'Stable Diffusion XL Img2Img', 'Kandinsky V1 Img2Img', 'Kandinsky V2 Img2Img', 'DeepFloyd IF Img2Img', 'Shap-E Img2Img'
 ]
-latent_upscale_default_mode = "None"
+latent_upscale_default_mode = "Latent"
 latent_upscale_modes = {
     "Latent": {"mode": "bilinear", "antialias": False},
     "Latent (antialiased)": {"mode": "bilinear", "antialias": True},
@@ -66,7 +66,6 @@ restricted_opts = {
     "outdir_save",
     "outdir_init_images"
 }
-compatibility_opts = ['clip_skip', 'uni_pc_lower_order_final', 'uni_pc_order']
 
 
 def is_url(string):
@@ -185,13 +184,8 @@ class State:
 
 state = State()
 state.server_start = time.time()
-if not hasattr(cmd_opts, "use_openvino"):
-    cmd_opts.use_openvino = False
-if cmd_opts.use_openvino:
-    backend = Backend.DIFFUSERS
-    cmd_opts.backend = 'diffusers'
-else:
-    backend = Backend.DIFFUSERS if (cmd_opts.backend is not None) and (cmd_opts.backend.lower() == 'diffusers') else Backend.ORIGINAL # initial since we don't have opts loaded yet
+
+backend = Backend.DIFFUSERS if (cmd_opts.backend is not None) and (cmd_opts.backend.lower() == 'diffusers') else Backend.ORIGINAL # initial since we don't have opts loaded yet
 
 
 class OptionInfo:
@@ -274,7 +268,7 @@ def list_themes():
 
 
 def disable_extensions():
-    if opts.lyco_patch_lora and backend != Backend.DIFFUSERS:
+    if opts.lora_disable:
         if 'Lora' not in opts.disabled_extensions:
             opts.data['disabled_extensions'].append('Lora')
     else:
@@ -308,8 +302,6 @@ def readfile(filename, silent=False):
         with fasteners.InterProcessLock(f"{filename}.lock"):
             with open(filename, "r", encoding="utf8") as file:
                 data = json.load(file)
-                if type(data) is str:
-                    data = json.loads(data)
             if not silent:
                 log.debug(f'Reading: {filename} len={len(data)}')
     except Exception as e:
@@ -348,7 +340,7 @@ else: # cuda
     cross_attention_optimization_default = "Scaled-Dot-Product"
 
 options_templates.update(options_section(('sd', "Stable Diffusion"), {
-    "sd_backend": OptionInfo("diffusers" if cmd_opts.use_openvino else "original", "Stable Diffusion backend", gr.Radio, lambda: {"choices": ["original", "diffusers"] }),
+    "sd_backend": OptionInfo("original", "Stable Diffusion backend", gr.Radio, lambda: {"choices": ["original", "diffusers"] }),
     "sd_checkpoint_autoload": OptionInfo(True, "Stable Diffusion checkpoint autoload on server start"),
     "sd_model_checkpoint": OptionInfo(default_checkpoint, "Stable Diffusion checkpoint", gr.Dropdown, lambda: {"choices": list_checkpoint_tiles()}, refresh=refresh_checkpoints),
     "sd_model_refiner": OptionInfo('None', "Stable Diffusion refiner", gr.Dropdown, lambda: {"choices": ['None'] + list_checkpoint_tiles()}, refresh=refresh_checkpoints),
@@ -373,13 +365,13 @@ options_templates.update(options_section(('optimizations', "Optimizations"), {
     "token_merging_ratio": OptionInfo(0.0, "Token merging ratio", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.1}),
     "token_merging_ratio_img2img": OptionInfo(0.0, "Token merging ratio for img2img", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.1}),
     "token_merging_ratio_hr": OptionInfo(0.0, "Token merging ratio for hires pass", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.1}),
-    "sd_vae_sliced_encode": OptionInfo(False, "VAE Slicing (original)"),
+    "sd_vae_sliced_encode": OptionInfo(False, "Enable splitting of hires batch processing"),
 }))
 
 options_templates.update(options_section(('cuda', "Compute Settings"), {
     "memmon_poll_rate": OptionInfo(2, "VRAM usage polls per second during generation", gr.Slider, {"minimum": 0, "maximum": 40, "step": 1}),
     "precision": OptionInfo("Autocast", "Precision type", gr.Radio, lambda: {"choices": ["Autocast", "Full"]}),
-    "cuda_dtype": OptionInfo("FP32" if sys.platform == "darwin" or cmd_opts.use_openvino else "BF16" if devices.backend == "ipex" else "FP16", "Device precision type", gr.Radio, lambda: {"choices": ["FP32", "FP16", "BF16"]}),
+    "cuda_dtype": OptionInfo("FP32" if sys.platform == "darwin" else "BF16" if devices.backend == "ipex" else "FP16", "Device precision type", gr.Radio, lambda: {"choices": ["FP32", "FP16", "BF16"]}),
     "no_half": OptionInfo(False, "Use full precision for model (--no-half)", None, None, None),
     "no_half_vae": OptionInfo(False, "Use full precision for VAE (--no-half-vae)"),
     "upcast_sampling": OptionInfo(True if sys.platform == "darwin" else False, "Enable upcast sampling"),
@@ -391,36 +383,37 @@ options_templates.update(options_section(('cuda', "Compute Settings"), {
     "cudnn_benchmark": OptionInfo(False, "Enable full-depth cuDNN benchmark feature"),
     # "cuda_allow_tf32": OptionInfo(True, "Allow TF32 math ops"),
     # "cuda_allow_tf16_reduced": OptionInfo(True, "Allow TF16 reduced precision math ops"),
-    "cuda_compile": OptionInfo(True if cmd_opts.use_openvino else False, "Enable model compile (experimental)"),
-    "cuda_compile_backend": OptionInfo("openvino_fx" if cmd_opts.use_openvino else "none", "Model compile backend (experimental)", gr.Radio, lambda: {"choices": ['none', 'inductor', 'cudagraphs', 'aot_ts_nvfuser', 'hidet', 'ipex', 'openvino_fx']}),
+    "cuda_compile": OptionInfo(False, "Enable model compile (experimental)"),
+    "cuda_compile_backend": OptionInfo("none", "Model compile backend (experimental)", gr.Radio, lambda: {"choices": ['none', 'inductor', 'cudagraphs', 'aot_ts_nvfuser', 'hidet', 'ipex', 'openvino_fx']}),
     "cuda_compile_mode": OptionInfo("default", "Model compile mode (experimental)", gr.Radio, lambda: {"choices": ['default', 'reduce-overhead', 'max-autotune']}),
     "cuda_compile_fullgraph": OptionInfo(False, "Model compile fullgraph"),
-    "cuda_compile_precompile": OptionInfo(False, "Model compile precompile"),
     "cuda_compile_verbose": OptionInfo(False, "Model compile verbose mode"),
     "cuda_compile_errors": OptionInfo(True, "Model compile suppress errors"),
+    "disable_gc": OptionInfo(True, "Disable Torch memory garbage collection"),
     "ipex_optimize": OptionInfo(True if devices.backend == "ipex" else False, "Enable IPEX Optimize for Intel GPUs"),
     "directml_memory_provider": OptionInfo(default_memory_provider, '[DirectML] Memory stats provider', gr.Dropdown, lambda: {"choices": memory_providers}),
 }))
 
 options_templates.update(options_section(('diffusers', "Diffusers Settings"), {
     "diffusers_pipeline": OptionInfo(pipelines[0], 'Diffusers pipeline', gr.Dropdown, lambda: {"choices": pipelines}),
-    "diffusers_move_base": OptionInfo(True, "Move base model to CPU when using refiner"),
-    "diffusers_move_unet": OptionInfo(True, "Move base model to CPU when using VAE"),
+    "diffusers_taesd_vae_output": OptionInfo(False, 'Use TAESD VAE for quick image outputs'),
+    "diffusers_move_base": OptionInfo(False, "Move base model to CPU when using refiner"),
+    "diffusers_move_unet": OptionInfo(False, "Move base model to CPU when using VAE"),
     "diffusers_move_refiner": OptionInfo(True, "Move refiner model to CPU when not in use"),
     "diffusers_extract_ema": OptionInfo(True, "Use model EMA weights when possible"),
     "diffusers_generator_device": OptionInfo("default", "Generator device", gr.Radio, lambda: {"choices": ["default", "cpu"]}),
-    "diffusers_model_cpu_offload": OptionInfo(False, "Enable model CPU offload (--medvram)"),
-    "diffusers_seq_cpu_offload": OptionInfo(False, "Enable sequential CPU offload (--lowvram)"),
+    "diffusers_seq_cpu_offload": OptionInfo(False, "Enable sequential CPU offload"),
+    "diffusers_model_cpu_offload": OptionInfo(False, "Enable model CPU offload"),
     "diffusers_vae_upcast": OptionInfo("default", "VAE upcasting", gr.Radio, lambda: {"choices": ['default', 'true', 'false']}),
     "diffusers_vae_slicing": OptionInfo(True, "Enable VAE slicing"),
-    "diffusers_vae_tiling": OptionInfo(True, "Enable VAE tiling"),
+    "diffusers_vae_tiling": OptionInfo(False, "Enable VAE tiling"),
     "diffusers_attention_slicing": OptionInfo(False, "Enable attention slicing"),
     "diffusers_model_load_variant": OptionInfo("default", "Diffusers model loading variant", gr.Radio, lambda: {"choices": ['default', 'fp32', 'fp16']}),
     "diffusers_vae_load_variant": OptionInfo("default", "Diffusers VAE loading variant", gr.Radio, lambda: {"choices": ['default', 'fp32', 'fp16']}),
-    "diffusers_lora_loader": OptionInfo("diffusers default" if cmd_opts.use_openvino else "sequential apply", "Diffusers LoRA loading variant", gr.Radio, lambda: {"choices": ['sequential apply', 'merge and apply', 'diffusers default']}),
+    "diffusers_lora_loader": OptionInfo("sequential apply", "Diffusers LoRA loading variant", gr.Radio, lambda: {"choices": ['sequential apply', 'merge and apply', 'diffusers default']}),
     # "diffusers_force_zeros": OptionInfo(False, "Force zeros for prompts when empty"),
     # "diffusers_aesthetics_score": OptionInfo(6.0, "Require aesthetic score", gr.Slider, {"minimum": 0, "maximum": 10, "step": 0.1}),
-})) #not sure
+}))
 
 options_templates.update(options_section(('system-paths', "System Paths"), {
     "temp_dir": OptionInfo("", "Directory for temporary images; leave empty for default"),
@@ -428,7 +421,7 @@ options_templates.update(options_section(('system-paths', "System Paths"), {
     "ckpt_dir": OptionInfo(os.path.join(paths.models_path, 'Stable-diffusion'), "Path to directory with stable diffusion checkpoints"),
     "diffusers_dir": OptionInfo(os.path.join(paths.models_path, 'Diffusers'), "Path to directory with stable diffusion diffusers"),
     "vae_dir": OptionInfo(os.path.join(paths.models_path, 'VAE'), "Path to directory with VAE files"),
-    "lora_dir": OptionInfo(os.path.join(paths.models_path, 'Lora'), "Path to directory with LoRA network(s)"),
+    "lora_dir": OptionInfo(os.path.join(paths.models_path, 'Lora'), "Path to directory with Lora network(s)"),
     "lyco_dir": OptionInfo(os.path.join(paths.models_path, 'LyCORIS'), "Path to directory with LyCORIS network(s)"),
     "styles_dir": OptionInfo(os.path.join(paths.data_path, 'styles.csv'), "Path to user-defined styles file"),
     "embeddings_dir": OptionInfo(os.path.join(paths.models_path, 'embeddings'), "Embeddings directory for textual inversion"),
@@ -461,7 +454,7 @@ options_templates.update(options_section(('saving-images', "Image Options"), {
     "grid_prevent_empty_spots": OptionInfo(True, "Prevent empty spots in grid (when set to autodetect)"),
     "n_rows": OptionInfo(-1, "Grid row count", gr.Slider, {"minimum": -1, "maximum": 16, "step": 1}),
     "save_txt": OptionInfo(False, "Create text file next to every image with generation parameters"),
-    "save_log_fn": OptionInfo("image-log.json", "Create JSON log file for each saved image", component_args=hide_dirs),
+    "save_log_fn": OptionInfo("", "Create JSON log file for each saved image", component_args=hide_dirs),
     "save_images_before_highres_fix": OptionInfo(False, "Save copy of image before applying highres fix"),
     "save_images_before_refiner": OptionInfo(False, "Save copy of image before running refiner"),
     "save_images_before_face_restoration": OptionInfo(False, "Save copy of image before doing face restoration"),
@@ -469,9 +462,9 @@ options_templates.update(options_section(('saving-images', "Image Options"), {
     "save_mask": OptionInfo(False, "Save copy of the inpainting greyscale mask"),
     "save_mask_composite": OptionInfo(False, "Save copy of inpainting masked composite"),
     "save_init_img": OptionInfo(False, "Save copy of processing init images"),
-    "jpeg_quality": OptionInfo(90, "Quality for saved jpeg images", gr.Slider, {"minimum": 1, "maximum": 100, "step": 1}),
+    "jpeg_quality": OptionInfo(85, "Quality for saved jpeg images", gr.Slider, {"minimum": 1, "maximum": 100, "step": 1}),
     "webp_lossless": OptionInfo(False, "Use lossless compression for webp images"),
-    "img_max_size_mp": OptionInfo(350, "Maximum allowed image size in megapixels", gr.Number),
+    "img_max_size_mp": OptionInfo(250, "Maximum allowed image size in megapixels", gr.Number),
     "use_original_name_batch": OptionInfo(True, "Use original name for output filename during batch process"),
     "use_upscaler_name_as_suffix": OptionInfo(True, "Use upscaler name as filename suffix in the extras tab"),
     "save_selected_only": OptionInfo(True, "When using 'Save' button, only save a single selected image"),
@@ -564,7 +557,6 @@ options_templates.update(options_section(('sampler-params', "Sampler Settings"),
     's_tmin':  OptionInfo(0.0, "sigma tmin",  gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}),
     's_noise': OptionInfo(1.0, "sigma noise", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}),
     'always_discard_next_to_last_sigma': OptionInfo(False, "Always discard next-to-last sigma"),
-    'never_discard_next_to_last_sigma': OptionInfo(False, "Never discard next-to-last sigma"),
 
     "schedulers_sep_compvis": OptionInfo("<h2>CompVis specific config</h2>", "", gr.HTML),
     "ddim_discretize": OptionInfo('uniform', "DDIM discretize img2img", gr.Radio, {"choices": ['uniform', 'quad']}),
@@ -630,9 +622,9 @@ options_templates.update(options_section(('extra_networks', "Extra Networks"), {
     "extra_networks_card_square": OptionInfo(True, "UI disable variable aspect ratio"),
     "extra_networks_card_fit": OptionInfo("cover", "UI image contain method", gr.Radio, lambda: {"choices": ["contain", "cover", "fill"]}),
     "extra_network_skip_indexing": OptionInfo(False, "Do not automatically build extra network pages", gr.Checkbox),
-    "lyco_patch_lora": OptionInfo(False, "Use LyCoris handler for all LoRA types", gr.Checkbox),
-    # "lora_disable": OptionInfo(False, "Disable built-in Lora handler", gr.Checkbox, { "visible": True }, onchange=disable_extensions),
-    "lora_functional": OptionInfo(False, "Use Kohya method for handling multiple LoRA", gr.Checkbox),
+    "lyco_patch_lora": OptionInfo(False, "Use LyCoris handler for all Lora types", gr.Checkbox),
+    "lora_disable": OptionInfo(False, "Disable built-in Lora handler", gr.Checkbox, { "visible": True }, onchange=disable_extensions),
+    "lora_functional": OptionInfo(False, "Use Kohya method for handling multiple Loras", gr.Checkbox),
     "extra_networks_add_text_separator": OptionInfo(" ", "Extra text to add before <...> when adding extra network to prompt", gr.Text, { "visible": False }),
     "extra_networks_default_multiplier": OptionInfo(1.0, "Multiplier for extra networks", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}),
     "sd_hypernetwork": OptionInfo("None", "Add hypernetwork to prompt", gr.Dropdown, lambda: {"choices": ["None"] + list(hypernetworks.keys())}, refresh=reload_hypernetworks),
@@ -679,8 +671,6 @@ class Options:
     def set(self, key, value):
         """sets an option and calls its onchange callback, returning True if the option changed and False otherwise"""
         oldval = self.data.get(key, None)
-        if oldval is None:
-            oldval = self.data_labels[key].default
         if oldval == value:
             return False
         try:
@@ -699,29 +689,19 @@ class Options:
     def get_default(self, key):
         """returns the default value for the key"""
         data_label = self.data_labels.get(key)
-        return data_label.default if data_label is not None else None
+        if data_label is None:
+            return None
+        return data_label.default
 
     def save(self, filename):
         if cmd_opts.freeze:
             log.warning(f'Settings saving is disabled: {filename}')
             return
         try:
-            # output = json.dumps(self.data, indent=2)
-            diff = {}
-            unused_settings = []
-            for k, v in self.data.items():
-                if k in self.data_labels:
-                    if type(v) is list:
-                        diff[k] = v
-                    if self.data_labels[k].default != v:
-                        diff[k] = v
-                else:
-                    if k not in compatibility_opts:
-                        unused_settings.append(k)
-                    diff[k] = v
-            writefile(diff, filename)
-            if len(unused_settings) > 0:
-                log.debug(f"Unused settings: {unused_settings}")
+            output = json.dumps(self.data, indent=2)
+            log.debug(f'Saving settings: {filename} len={len(output)}')
+            with open(filename, "w", encoding="utf8") as file:
+                file.write(output)
         except Exception as e:
             log.error(f'Saving settings failed: {filename} {e}')
 
@@ -740,15 +720,14 @@ class Options:
         self.data = readfile(filename)
         if self.data.get('quicksettings') is not None and self.data.get('quicksettings_list') is None:
             self.data['quicksettings_list'] = [i.strip() for i in self.data.get('quicksettings').split(',')]
-        unknown_settings = []
+        bad_settings = 0
         for k, v in self.data.items():
             info = self.data_labels.get(k, None)
             if info is not None and not self.same_type(info.default, v):
-                log.error(f"Error: bad setting value: {k}: {v} ({type(v).__name__}; expected {type(info.default).__name__})")
-            if info is None and k not in compatibility_opts:
-                unknown_settings.append(k)
-        if len(unknown_settings) > 0:
-            log.debug(f"Unknown settings: {unknown_settings}")
+                log.error(f"Warning: bad setting value: {k}: {v} ({type(v).__name__}; expected {type(info.default).__name__})")
+                bad_settings += 1
+        if bad_settings > 0:
+            log.error(f"Error: Bad settings found in {filename}")
 
     def onchange(self, key, func, call=True):
         item = self.data_labels.get(key)
@@ -804,13 +783,13 @@ config_filename = cmd_opts.config
 opts.load(config_filename)
 cmd_opts = cmd_args.compatibility_args(opts, cmd_opts)
 if cmd_opts.backend is None:
-    backend = Backend.DIFFUSERS if cmd_opts.use_openvino or opts.data.get('sd_backend', 'original') == 'diffusers' else Backend.ORIGINAL
+    backend = Backend.DIFFUSERS if opts.data.get('sd_backend', 'original') == 'diffusers' else Backend.ORIGINAL
 else:
-    backend = Backend.DIFFUSERS if cmd_opts.use_openvino or cmd_opts.backend.lower() == 'diffusers' else Backend.ORIGINAL
+    backend = Backend.DIFFUSERS if cmd_opts.backend.lower() == 'diffusers' else Backend.ORIGINAL
 opts.data['sd_backend'] = 'diffusers' if backend == Backend.DIFFUSERS else 'original'
 opts.data['uni_pc_lower_order_final'] = opts.schedulers_use_loworder
 opts.data['uni_pc_order'] = opts.schedulers_solver_order
-log.info(f'Engine: backend={backend}')
+log.info(f'Pipeline: {backend}')
 
 
 prompt_styles = modules.styles.StyleDatabase(opts.styles_dir)
@@ -1000,7 +979,7 @@ class Shared(sys.modules[__name__].__class__): # this class is here to provide s
 
     @property
     def backend(self):
-        return Backend.ORIGINAL if not cmd_opts.use_openvino and opts.data['sd_backend'] == 'original' else Backend.DIFFUSERS
+        return Backend.ORIGINAL if opts.data['sd_backend'] == 'original' else Backend.DIFFUSERS
 
     @property
     def sd_model_type(self):

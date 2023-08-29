@@ -1,5 +1,3 @@
-const appStartTime = performance.now();
-
 function gradioApp() {
   const elems = document.getElementsByTagName('gradio-app');
   const elem = elems.length === 0 ? document : elems[0];

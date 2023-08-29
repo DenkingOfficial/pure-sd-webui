@@ -17,7 +17,7 @@ function initNotifications() {
   if (audioNotification) audioNotification.play();
   lastHeadImg = headImg;
   const imgs = new Set(Array.from(galleryPreviews).map((img) => img.src)); // Multiple copies of the images are in the DOM when one is selected
-  const notification = new Notification('Stable Diffusion WebUI', {
+  const notification = new Notification('SD.Stable Diffusion WebUI', {
     body: `Generated ${imgs.size > 1 ? imgs.size - opts.return_grid : 1} image${imgs.size > 1 ? 's' : ''}`,
     icon: headImg,
     image: headImg,

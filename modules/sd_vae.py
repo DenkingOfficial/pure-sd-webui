@@ -98,7 +98,7 @@ def refresh_vae_list():
                 vae_dict[name] = os.path.dirname(filepath)
             else:
                 vae_dict[name] = filepath
-    shared.log.info(f"Available VAEs: {vae_path} items={len(vae_dict)}")
+    shared.log.info(f"Available VAEs: {vae_path} {len(vae_dict)}")
     return vae_dict
 
 
@@ -117,18 +117,15 @@ def resolve_vae(checkpoint_file):
         return None, None
     vae_near_checkpoint = find_vae_near_checkpoint(checkpoint_file)
     if vae_near_checkpoint is not None: # 3rd
-        return vae_near_checkpoint, 'near-checkpoint'
+        return vae_near_checkpoint, 'near checkpoint'
     if shared.opts.sd_vae == "Automatic": # 4th
         basename = os.path.splitext(os.path.basename(checkpoint_file))[0]
         if vae_dict.get(basename, None) is not None:
-            return vae_dict[basename], 'automatic'
+            return vae_dict[basename], 'in VAE dir'
     else:
         vae_from_options = vae_dict.get(shared.opts.sd_vae, None) # 5th
         if vae_from_options is not None:
-            return vae_from_options, 'settings'
-        vae_from_options = vae_dict.get(shared.opts.sd_vae + '.safetensors', None) # 6th
-        if vae_from_options is not None:
-            return vae_from_options, 'settings'
+            return vae_from_options, 'specified in settings'
         shared.log.warning(f"VAE not found: {shared.opts.sd_vae}")
     return None, None
 
@@ -139,18 +136,18 @@ def load_vae_dict(filename):
     return vae_dict_1
 
 
-def load_vae(model, vae_file=None, vae_source="unknown-source"):
+def load_vae(model, vae_file=None, vae_source="from unknown source"):
     global loaded_vae_file # pylint: disable=global-statement
     cache_enabled = shared.opts.sd_vae_checkpoint_cache > 0
     if vae_file:
         if cache_enabled and vae_file in checkpoints_loaded:
             # use vae checkpoint cache
-            shared.log.info(f"Loading VAE weights: {get_filename(vae_file)} source={vae_source} cached=True")
+            shared.log.info(f"Loading VAE weights: {vae_source}: cached {get_filename(vae_file)}")
             store_base_vae(model)
             _load_vae_dict(model, checkpoints_loaded[vae_file])
         else:
             if not os.path.isfile(vae_file):
-                shared.log.error(f"VAE doesn't exist: {vae_file} source={vae_source}")
+                shared.log.error(f"VAE {vae_source} doesn't exist: {vae_file}")
                 return
             store_base_vae(model)
             vae_dict_1 = load_vae_dict(vae_file)
@@ -172,13 +169,13 @@ def load_vae(model, vae_file=None, vae_source="unknown-source"):
     loaded_vae_file = vae_file
 
 
-def load_vae_diffusers(model_file, vae_file=None, vae_source="unknown-source"):
+def load_vae_diffusers(model_file, vae_file=None, vae_source="from unknown source"):
     if vae_file is None:
         return None
     if not os.path.exists(vae_file):
         shared.log.error(f'VAE not found: {vae_file}')
         return None
-    shared.log.info(f"Loading diffusers VAE: {vae_file} source={vae_source}")
+    shared.log.info(f"Loading diffusers VAE: {vae_source}: {vae_file}")
     diffusers_load_config = {
         "low_cpu_mem_usage": False,
         "torch_dtype": devices.dtype_vae,
@@ -191,8 +188,10 @@ def load_vae_diffusers(model_file, vae_file=None, vae_source="unknown-source"):
         pass
     else:
         diffusers_load_config['variant'] = shared.opts.diffusers_vae_load_variant
+
     if shared.opts.diffusers_vae_upcast != 'default':
         diffusers_load_config['force_upcast'] = True if shared.opts.diffusers_vae_upcast == 'true' else False
+
     shared.log.debug(f'Diffusers VAE load config: {diffusers_load_config}')
     try:
         import diffusers
@@ -236,7 +235,7 @@ def reload_vae_weights(sd_model=None, vae_file=unspecified):
     if vae_file == unspecified:
         vae_file, vae_source = resolve_vae(checkpoint_file)
     else:
-        vae_source = "function-argument"
+        vae_source = "from function argument"
     if loaded_vae_file == vae_file:
         return
     if not sd_model.has_accelerate:
@@ -252,11 +251,8 @@ def reload_vae_weights(sd_model=None, vae_file=unspecified):
         load_vae(sd_model, vae_file, vae_source)
         sd_hijack.model_hijack.hijack(sd_model)
         script_callbacks.model_loaded_callback(sd_model)
-        if vae_file is not None:
-            shared.log.info(f"VAE weights loaded: {vae_file}")
-    # else:
-    #    load_vae_diffusers(model_file, vae_file, vae_source)
 
     if not shared.cmd_opts.lowvram and not shared.cmd_opts.medvram and not sd_model.has_accelerate:
         sd_model.to(devices.device)
+    shared.log.info(f"VAE weights loaded: {vae_file}")
     return sd_model

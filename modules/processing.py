@@ -86,7 +86,7 @@ class StableDiffusionProcessing:
     """
     The first set of paramaters: sd_models -> do_not_reload_embeddings represent the minimum required to create a StableDiffusionProcessing
     """
-    def __init__(self, sd_model=None, outpath_samples=None, outpath_grids=None, prompt: str = "", styles: List[str] = None, seed: int = -1, subseed: int = -1, subseed_strength: float = 0, seed_resize_from_h: int = -1, seed_resize_from_w: int = -1, seed_enable_extras: bool = True, sampler_name: str = None, latent_sampler: str = None, batch_size: int = 1, n_iter: int = 1, steps: int = 50, cfg_scale: float = 7.0, image_cfg_scale: float = None, width: int = 512, height: int = 512, full_quality: bool = True, restore_faces: bool = False, tiling: bool = False, do_not_save_samples: bool = False, do_not_save_grid: bool = False, extra_generation_params: Dict[Any, Any] = None, overlay_images: Any = None, negative_prompt: str = None, eta: float = None, do_not_reload_embeddings: bool = False, denoising_strength: float = 0, diffusers_guidance_rescale: float = 0.7, ddim_discretize: str = None, s_min_uncond: float = 0.0, s_churn: float = 0.0, s_tmax: float = None, s_tmin: float = 0.0, s_noise: float = 1.0, override_settings: Dict[str, Any] = None, override_settings_restore_afterwards: bool = True, sampler_index: int = None, script_args: list = None): # pylint: disable=unused-argument
+    def __init__(self, sd_model=None, outpath_samples=None, outpath_grids=None, prompt: str = "", styles: List[str] = None, seed: int = -1, subseed: int = -1, subseed_strength: float = 0, seed_resize_from_h: int = -1, seed_resize_from_w: int = -1, seed_enable_extras: bool = True, sampler_name: str = None, latent_sampler: str = None, batch_size: int = 1, n_iter: int = 1, steps: int = 50, cfg_scale: float = 7.0, image_cfg_scale: float = None, width: int = 512, height: int = 512, restore_faces: bool = False, tiling: bool = False, do_not_save_samples: bool = False, do_not_save_grid: bool = False, extra_generation_params: Dict[Any, Any] = None, overlay_images: Any = None, negative_prompt: str = None, eta: float = None, do_not_reload_embeddings: bool = False, denoising_strength: float = 0, diffusers_guidance_rescale: float = 0.7, ddim_discretize: str = None, s_min_uncond: float = 0.0, s_churn: float = 0.0, s_tmax: float = None, s_tmin: float = 0.0, s_noise: float = 1.0, override_settings: Dict[str, Any] = None, override_settings_restore_afterwards: bool = True, sampler_index: int = None, script_args: list = None): # pylint: disable=unused-argument
 
         self.outpath_samples: str = outpath_samples
         self.outpath_grids: str = outpath_grids
@@ -110,7 +110,6 @@ class StableDiffusionProcessing:
         self.diffusers_guidance_rescale = diffusers_guidance_rescale
         self.width: int = width
         self.height: int = height
-        self.full_quality: bool = full_quality
         self.restore_faces: bool = restore_faces
         self.tiling: bool = tiling
         self.do_not_save_samples: bool = do_not_save_samples
@@ -450,9 +449,7 @@ def create_infotext(p: StableDiffusionProcessing, all_prompts, all_seeds, all_su
         index = position_in_batch + iteration * p.batch_size
     if all_negative_prompts is None:
         all_negative_prompts = p.all_negative_prompts
-    vae = (None if not shared.opts.add_model_name_to_info or sd_vae.loaded_vae_file is None else os.path.splitext(os.path.basename(sd_vae.loaded_vae_file))[0]) if p.full_quality else 'TAESD'
     comment = ', '.join(comments) if comments is not None and type(comments) is list else None
-
     generation_params = {
         "Steps": p.steps,
         "Seed": all_seeds[index],
@@ -464,7 +461,7 @@ def create_infotext(p: StableDiffusionProcessing, all_prompts, all_seeds, all_su
         "Model": None if (not shared.opts.add_model_name_to_info) or (not shared.sd_model.sd_checkpoint_info.model_name) else shared.sd_model.sd_checkpoint_info.model_name.replace(',', '').replace(':', ''),
         "Model hash": getattr(p, 'sd_model_hash', None if (not shared.opts.add_model_hash_to_info) or (not shared.sd_model.sd_model_hash) else shared.sd_model.sd_model_hash),
         "Refiner": None if (not shared.opts.add_model_name_to_info) or (not shared.sd_refiner) or (not shared.sd_refiner.sd_checkpoint_info.model_name) else shared.sd_refiner.sd_checkpoint_info.model_name.replace(',', '').replace(':', ''),
-        "VAE": vae,
+        "VAE": None if not shared.opts.add_model_name_to_info or sd_vae.loaded_vae_file is None else os.path.splitext(os.path.basename(sd_vae.loaded_vae_file))[0],
         # subseed
         "Variation seed": None if p.subseed_strength == 0 else all_subseeds[index],
         "Variation seed strength": None if p.subseed_strength == 0 else p.subseed_strength,
@@ -484,7 +481,6 @@ def create_infotext(p: StableDiffusionProcessing, all_prompts, all_seeds, all_su
         "Negative2": p.refiner_negative if p.enable_hr and len(p.refiner_negative) > 0 else None,
         "Latent sampler": p.latent_sampler if p.enable_hr and p.latent_sampler != p.sampler_name else None,
         "Denoising strength": p.denoising_strength if p.enable_hr else None,
-        "Image CFG Scale": p.image_cfg_scale,
         # sdwebui
         "Backend": 'Diffusers' if shared.backend == shared.Backend.DIFFUSERS else 'Original',
         "Version": git_commit,
@@ -532,9 +528,7 @@ def print_profile(profile, msg: str):
 
 
 def process_images(p: StableDiffusionProcessing) -> Processed:
-    stored_opts = {}
-    for k in p.override_settings.keys():
-        stored_opts[k] = shared.opts.data.get(k, None)
+    stored_opts = {k: shared.opts.data[k] for k in p.override_settings.keys()}
     try:
         # if no checkpoint override or the override checkpoint can't be found, remove override entry and load opts checkpoint
         if p.override_settings.get('sd_model_checkpoint', None) is not None and sd_models.checkpoint_aliases.get(p.override_settings.get('sd_model_checkpoint')) is None:
@@ -573,29 +567,10 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
                 setattr(shared.opts, k, v)
                 if k == 'sd_model_checkpoint':
                     sd_models.reload_model_weights()
+
                 if k == 'sd_vae':
                     sd_vae.reload_vae_weights()
     return res
-
-
-def validate_sample(sample):
-    ok = True
-    try:
-        sample = sample.astype(np.uint8)
-        return sample
-    except (Warning, Exception) as e:
-        shared.log.error(f'Failed to validate sample values: {e}')
-        ok = False
-    if not ok:
-        try:
-            sample = np.nan_to_num(sample, nan=0, posinf=255, neginf=0)
-            sample = sample.astype(np.uint8)
-            shared.log.debug('Corrected sample values')
-        except (Warning, Exception) as e:
-            shared.log.error(f'Failed to correct sample values: {e}')
-            sample = np.zeros_like(sample)
-            sample = sample.astype(np.uint8)
-    return sample
 
 
 def process_images_inner(p: StableDiffusionProcessing) -> Processed:
@@ -732,7 +707,7 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
             else:
                 raise ValueError(f"Unknown backend {shared.backend}")
 
-            if shared.cmd_opts.lowvram or shared.cmd_opts.medvram and shared.backend == shared.Backend.ORIGINAL:
+            if shared.cmd_opts.lowvram or shared.cmd_opts.medvram:
                 lowvram.send_everything_to_cpu()
                 devices.torch_gc()
             if p.scripts is not None:
@@ -749,8 +724,11 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
 
             for i, x_sample in enumerate(x_samples_ddim):
                 p.batch_index = i
-                x_sample = 255. * (np.moveaxis(x_sample.cpu().numpy(), 0, 2) if shared.backend == shared.Backend.ORIGINAL else x_sample)
-                x_sample = validate_sample(x_sample)
+                if shared.backend == shared.Backend.ORIGINAL:
+                    x_sample = 255. * np.moveaxis(x_sample.cpu().numpy(), 0, 2)
+                    x_sample = x_sample.astype(np.uint8)
+                else:
+                    x_sample = (255. * x_sample).astype(np.uint8)
                 if p.restore_faces:
                     if shared.opts.save and not p.do_not_save_samples and shared.opts.save_images_before_face_restoration:
                         orig = p.restore_faces
@@ -814,12 +792,11 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
 
     if not p.disable_extra_networks and extra_network_data:
         extra_networks.deactivate(p, extra_network_data)
-
     res = Processed(
         p,
         images_list=output_images,
         seed=p.all_seeds[0],
-        info=infotext() if 'infotext' in globals() else '',
+        info=infotext(),
         comments="\n".join(comments),
         subseed=p.all_subseeds[0],
         index_of_first_image=index_of_first_image,
@@ -973,7 +950,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             batch_images = []
             for i, x_sample in enumerate(lowres_samples):
                 x_sample = 255. * np.moveaxis(x_sample.cpu().numpy(), 0, 2)
-                x_sample = validate_sample(x_sample)
+                x_sample = x_sample.astype(np.uint8)
                 image = Image.fromarray(x_sample)
                 save_intermediate(image, i)
                 image = images.resize_image(1, image, target_width, target_height, upscaler_name=self.hr_upscaler)
@@ -995,7 +972,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         shared.state.nextjob()
         if self.latent_sampler == "PLMS":
             self.latent_sampler = 'UniPC'
-        self.sampler = sd_samplers.create_sampler(self.latent_sampler or self.sampler_name, self.sd_model)
+        self.sampler = sd_samplers.create_sampler(self.latent_sampler or self.sampler_name, self.sd_model) # idk about this one
         samples = samples[:, :, self.truncate_y//2:samples.shape[2]-(self.truncate_y+1)//2, self.truncate_x//2:samples.shape[3]-(self.truncate_x+1)//2]
         noise = create_random_tensors(samples.shape[1:], seeds=seeds, subseeds=subseeds, subseed_strength=subseed_strength, p=self)
         x = None
@@ -1033,8 +1010,6 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
         self.refiner_prompt = refiner_prompt
         self.refiner_negative = refiner_negative
         self.enable_hr = None
-        self.is_batch = False
-        self.scale_by = 1.0
 
     def init(self, all_prompts, all_seeds, all_subseeds):
         if shared.backend == shared.Backend.DIFFUSERS and self.image_mask is None:
@@ -1083,7 +1058,7 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
         for img in self.init_images:
             # Save init image
             if shared.opts.save_init_img:
-                self.init_img_hash = hashlib.sha256(img.tobytes()).hexdigest()[0:8] # pylint: disable=attribute-defined-outside-init
+                self.init_img_hash = hashlib.md5(img.tobytes()).hexdigest() # pylint: disable=attribute-defined-outside-init
                 images.save_image(img, path=shared.opts.outdir_init_images, basename=None, forced_filename=self.init_img_hash, save_to_dirs=False)
             image = images.flatten(img, shared.opts.img2img_background_color)
             if crop_region is None and self.resize_mode != 4:

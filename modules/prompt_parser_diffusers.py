@@ -1,6 +1,7 @@
 import os
 import typing
 import torch
+import diffusers
 from compel import Compel, ReturnedEmbeddingsType
 import modules.shared as shared
 import modules.prompt_parser as prompt_parser
@@ -33,7 +34,7 @@ CLIP_SKIP_MAPPING = {
 
 
 def compel_encode_prompts(
-    pipeline,
+    pipeline: diffusers.StableDiffusionXLPipeline | diffusers.StableDiffusionPipeline,
     prompts: list,
     negative_prompts: list,
     prompts_2: typing.Optional[list] = None,
@@ -57,19 +58,16 @@ def compel_encode_prompts(
         negative_embeds.append(negative_embed)
         negative_pooleds.append(negative_pooled)
 
-    if prompt_embeds is not None:
-        prompt_embeds = torch.cat(prompt_embeds, dim=0)
-    if negative_embeds is not None:
-        negative_embeds = torch.cat(negative_embeds, dim=0)
-    if positive_pooleds is not None and shared.sd_model_type == "sdxl":
+    prompt_embeds = torch.cat(prompt_embeds, dim=0)
+    negative_embeds = torch.cat(negative_embeds, dim=0)
+    if shared.sd_model_type == "sdxl":
         positive_pooleds = torch.cat(positive_pooleds, dim=0)
-    if negative_pooleds is not None and shared.sd_model_type == "sdxl":
         negative_pooleds = torch.cat(negative_pooleds, dim=0)
     return prompt_embeds, positive_pooleds, negative_embeds, negative_pooleds
 
 
 def compel_encode_prompt(
-    pipeline,
+    pipeline: diffusers.StableDiffusionXLPipeline | diffusers.StableDiffusionPipeline,
     prompt: str,
     negative_prompt: str,
     prompt_2: typing.Optional[str] = None,
@@ -90,7 +88,7 @@ def compel_encode_prompt(
         if clip_skip not in CLIP_SKIP_MAPPING:
             shared.log.warning(f"Prompt parser unsupported: clip_skip={clip_skip} expected={set(CLIP_SKIP_MAPPING.keys())}")
 
-    if shared.opts.prompt_attention != "Compel parser":
+    if shared.opts.data["prompt_attention"] != "Compel parser":
         prompt = convert_to_compel(prompt)
         negative_prompt = convert_to_compel(negative_prompt)
         prompt_2 = convert_to_compel(prompt_2)

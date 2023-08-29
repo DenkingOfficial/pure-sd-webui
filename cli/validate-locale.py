@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import sys
 import json
 from rich import print # pylint: disable=redefined-builtin

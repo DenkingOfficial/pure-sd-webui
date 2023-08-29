@@ -154,8 +154,6 @@ if __name__ == "__main__":
     installer.setup_logging()
     installer.log.info('Starting Stable Diffusion WebUI')
     installer.read_options()
-    if args.skip_all:
-        args.quick = True
     installer.check_python()
     if args.reset:
         installer.git_reset()
@@ -168,10 +166,7 @@ if __name__ == "__main__":
     if args.reinstall:
         installer.log.info('Forcing reinstall of all packages')
         installer.quick_allowed = False
-    if args.skip_all:
-        installer.log.info('Skipping all checks')
-        installer.quick_allowed = True
-    elif installer.check_timestamp():
+    if installer.check_timestamp():
         installer.log.info('No changes detected: Quick launch active')
         installer.install_packages()
     else:
